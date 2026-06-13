@@ -139,6 +139,21 @@ class Security {
 				$id  = isset( $value['id'] ) ? absint( $value['id'] ) : 0;
 				$url = isset( $value['url'] ) ? esc_url_raw( $value['url'] ) : '';
 				return [ 'id' => $id, 'url' => $url ];
+			case 'gallery':
+				if ( ! is_array( $value ) ) {
+					return [];
+				}
+				$items = [];
+				foreach ( array_slice( $value, 0, 100 ) as $img ) {
+					if ( ! is_array( $img ) ) {
+						continue;
+					}
+					$items[] = [
+						'id'  => isset( $img['id'] ) ? absint( $img['id'] ) : 0,
+						'url' => isset( $img['url'] ) ? esc_url_raw( $img['url'] ) : '',
+					];
+				}
+				return $items;
 			case 'repeater':
 				return is_array( $value ) ? self::sanitize_repeater( $value ) : [];
 			case 'text':

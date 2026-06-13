@@ -4,7 +4,7 @@ Tags: page builder, visual builder, drag and drop, editor, landing page
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.1.0
+Stable tag: 1.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -22,7 +22,7 @@ the code of Breakdance, Elementor, or any other commercial builder.
 Features:
 
 * Live drag-and-drop editor with a real-time, server-rendered canvas (true WYSIWYG).
-* Core widgets: Section, Columns, Heading, Text, Button, Image, Icon, Spacer, Divider, Custom HTML, Form.
+* 29 widgets across Layout, Basic, Media, Marketing, Interactive, Dynamic and Advanced groups — including Video, Gallery, Accordion, Tabs, Counter, Progress Bar, Testimonial, Star Rating, Icon Box, Icon List, Social Icons and Google Map.
 * Theme builder: design Headers, Footers, Single, Archive, Search and 404 templates and assign them with display conditions.
 * Dynamic widgets: Post Title, Post Content, Site Logo, Nav Menu, and a Posts loop for archives/blogs.
 * Per-breakpoint responsive style controls (desktop / tablet / mobile).
@@ -57,6 +57,12 @@ As a sanitized JSON tree in post meta (`_openb_tree`), with compiled CSS cached
 in `_openb_compiled_css`.
 
 == Changelog ==
+
+= 1.2.0 =
+* 12 new widgets: Video (privacy-friendly YouTube/Vimeo facade + self-hosted), Gallery, Icon Box, Icon List, Star Rating, Testimonial, Accordion, Tabs, Counter, Progress Bar, Social Icons, Google Map (keyless embed).
+* New control type: multi-image Gallery picker (WP media library, multi-select).
+* Front-end runtime for interactive widgets: accessible accordion + tabs (ARIA + keyboard), scroll-triggered counters and progress bars, click-to-load video facade.
+* Front-end assets now also load inside theme-builder templates (e.g. an accordion in a footer).
 
 = 1.1.0 =
 * Theme builder: Header, Footer, Single, Archive, Search and 404 templates.

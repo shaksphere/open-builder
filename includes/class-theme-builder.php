@@ -346,6 +346,18 @@ class Theme_Builder {
 		return OPENB_DIR . 'templates/canvas.php';
 	}
 
+	/** Whether any builder template (header/footer/body) applies to this request. */
+	public function applies_to_request(): bool {
+		if ( is_admin() ) {
+			return false;
+		}
+		if ( $this->resolve( 'header' ) || $this->resolve( 'footer' ) ) {
+			return true;
+		}
+		$body_type = $this->body_type_for_request();
+		return $body_type ? (bool) $this->resolve( $body_type ) : false;
+	}
+
 	/** Render a template post's tree + print its CSS. Safe to call in the loop. */
 	public static function render_template( int $template_id ): string {
 		if ( ! $template_id ) {

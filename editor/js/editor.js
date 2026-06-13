@@ -543,6 +543,9 @@
 			case 'image':
 				input = imageControl(value, onChange);
 				break;
+			case 'gallery':
+				input = galleryControl(value, onChange);
+				break;
 			case 'icon':
 				input = iconControl(ctrl, value, onChange);
 				break;
@@ -599,19 +602,45 @@
 		return wrap;
 	}
 
-	function openMedia(cb) {
-		// Use the WP media modal when available (it is, on the front-end editor
-		// because we run inside an authenticated session and can enqueue it).
-		if (window.parent && window.parent.wp && window.parent.wp.media) { return runMedia(window.parent.wp.media, cb); }
-		if (window.wp && window.wp.media) { return runMedia(window.wp.media, cb); }
-		var url = window.prompt('Image URL');
-		if (url) cb({ id: 0, url: url });
+	function galleryControl(value, onChange) {
+		value = Array.isArray(value) ? value.slice() : [];
+		var wrap = el('div', { class: 'openb-galleryctrl' });
+		var grid = el('div', { class: 'openb-galleryctrl__grid' });
+		function paint() {
+			grid.innerHTML = '';
+			value.forEach(function (img, i) {
+				var cell = el('div', { class: 'openb-galleryctrl__cell' }, [
+					el('img', { src: img.url || '' }),
+					el('button', { class: 'openb-galleryctrl__rm', text: '×', title: 'Remove', onclick: function () { value.splice(i, 1); onChange(value.slice()); paint(); } })
+				]);
+				grid.appendChild(cell);
+			});
+		}
+		paint();
+		var add = el('button', { class: 'openb-btn openb-btn--block', text: 'Add Images', onclick: function () {
+			openMedia(function (imgs) {
+				(Array.isArray(imgs) ? imgs : [imgs]).forEach(function (im) { value.push({ id: im.id, url: im.url }); });
+				onChange(value.slice()); paint();
+			}, true);
+		} });
+		wrap.appendChild(grid);
+		wrap.appendChild(add);
+		return wrap;
 	}
-	function runMedia(media, cb) {
-		var frame = media({ title: 'Select Image', multiple: false, library: { type: 'image' } });
+
+	function openMedia(cb, multiple) {
+		var media = (window.wp && window.wp.media) ? window.wp.media : null;
+		if (media) { return runMedia(media, cb, !!multiple); }
+		var url = window.prompt('Image URL');
+		if (url) cb(multiple ? [{ id: 0, url: url }] : { id: 0, url: url });
+	}
+	function runMedia(media, cb, multiple) {
+		var frame = media({ title: 'Select Image', multiple: !!multiple, library: { type: 'image' } });
 		frame.on('select', function () {
-			var att = frame.state().get('selection').first().toJSON();
-			cb({ id: att.id, url: (att.sizes && att.sizes.large ? att.sizes.large.url : att.url) });
+			var items = frame.state().get('selection').toJSON().map(function (att) {
+				return { id: att.id, url: (att.sizes && att.sizes.large ? att.sizes.large.url : att.url) };
+			});
+			cb(multiple ? items : items[0]);
 		});
 		frame.open();
 	}
@@ -901,7 +930,14 @@
 			bolt: '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
 			mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
 			phone: '<path d="M5 4h4l2 5-3 2a14 14 0 006 6l2-3 5 2v4a2 2 0 01-2 2A18 18 0 013 6a2 2 0 012-2z"/>',
-			globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18 14 14 0 010-18z"/>'
+			globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18 14 14 0 010-18z"/>',
+			play: '<circle cx="12" cy="12" r="9"/><path d="M10 8l6 4-6 4z" fill="currentColor" stroke="none"/>',
+			quote: '<path d="M7 7H4v6h3l-1 4h2l2-4V7zM18 7h-3v6h3l-1 4h2l2-4V7z"/>',
+			chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+			accordion: '<rect x="3" y="4" width="18" height="5" rx="1"/><rect x="3" y="12" width="18" height="8" rx="1"/><path d="M17 6h2M17 15h2"/>',
+			tabs: '<path d="M3 8h6V4H3zM10 8h11V4H10zM3 20h18V10H3z"/>',
+			share: '<circle cx="6" cy="12" r="2.5"/><circle cx="17" cy="6" r="2.5"/><circle cx="17" cy="18" r="2.5"/><path d="M8 11l7-4M8 13l7 4"/>',
+			map: '<path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/>'
 		};
 		var inner = icons[name] || icons.text;
 		return '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' + inner + '</svg>';

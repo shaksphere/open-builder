@@ -15,7 +15,117 @@
 	ready(function () {
 		var forms = document.querySelectorAll('form.ob-form');
 		Array.prototype.forEach.call(forms, bindForm);
+
+		initAccordions();
+		initTabs();
+		initVideoFacades();
+		initCounters();
+		initProgress();
 	});
+
+	/* ----- Accordion ----- */
+	function initAccordions() {
+		document.querySelectorAll('[data-ob-accordion]').forEach(function (acc) {
+			acc.addEventListener('click', function (e) {
+				var header = e.target.closest('.ob-accordion__header');
+				if (!header || !acc.contains(header)) return;
+				var item = header.closest('.ob-accordion__item');
+				var panel = item.querySelector('.ob-accordion__panel');
+				var open = item.classList.toggle('is-open');
+				header.setAttribute('aria-expanded', open ? 'true' : 'false');
+				if (open) { panel.removeAttribute('hidden'); } else { panel.setAttribute('hidden', ''); }
+			});
+		});
+	}
+
+	/* ----- Tabs ----- */
+	function initTabs() {
+		document.querySelectorAll('[data-ob-tabs]').forEach(function (tabs) {
+			var tabBtns = tabs.querySelectorAll('.ob-tabs__tab');
+			var panels = tabs.querySelectorAll('.ob-tabs__panel');
+			function activate(idx) {
+				tabBtns.forEach(function (b, i) {
+					var on = i === idx;
+					b.classList.toggle('is-active', on);
+					b.setAttribute('aria-selected', on ? 'true' : 'false');
+					b.tabIndex = on ? 0 : -1;
+				});
+				panels.forEach(function (p, i) {
+					var on = i === idx;
+					p.classList.toggle('is-active', on);
+					if (on) { p.removeAttribute('hidden'); } else { p.setAttribute('hidden', ''); }
+				});
+			}
+			tabBtns.forEach(function (b, i) {
+				b.addEventListener('click', function () { activate(i); });
+				b.addEventListener('keydown', function (e) {
+					if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+						e.preventDefault();
+						var next = e.key === 'ArrowRight' ? (i + 1) % tabBtns.length : (i - 1 + tabBtns.length) % tabBtns.length;
+						tabBtns[next].focus();
+						activate(next);
+					}
+				});
+			});
+		});
+	}
+
+	/* ----- Video facade (click to load embed) ----- */
+	function initVideoFacades() {
+		document.querySelectorAll('.ob-video__facade').forEach(function (btn) {
+			btn.addEventListener('click', function () {
+				var src = btn.getAttribute('data-ob-embed');
+				if (!src) return;
+				var iframe = document.createElement('iframe');
+				iframe.className = 'ob-video__player';
+				iframe.setAttribute('src', src + (src.indexOf('?') > -1 ? '&' : '?') + 'autoplay=1');
+				iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture');
+				iframe.setAttribute('allowfullscreen', '');
+				iframe.setAttribute('frameborder', '0');
+				btn.parentNode.replaceChild(iframe, btn);
+			});
+		});
+	}
+
+	/* ----- Counter + progress (animate when scrolled into view) ----- */
+	function onVisible(elements, cb) {
+		if (!('IntersectionObserver' in window)) {
+			elements.forEach(cb);
+			return;
+		}
+		var io = new IntersectionObserver(function (entries) {
+			entries.forEach(function (entry) {
+				if (entry.isIntersecting) { cb(entry.target); io.unobserve(entry.target); }
+			});
+		}, { threshold: 0.4 });
+		elements.forEach(function (el) { io.observe(el); });
+	}
+
+	function initCounters() {
+		onVisible(Array.prototype.slice.call(document.querySelectorAll('[data-ob-counter]')), function (el) {
+			var start = parseFloat(el.getAttribute('data-start')) || 0;
+			var end = parseFloat(el.getAttribute('data-end')) || 0;
+			var duration = parseInt(el.getAttribute('data-duration'), 10) || 2000;
+			var decimals = (end % 1 !== 0) ? (String(end).split('.')[1] || '').length : 0;
+			var startTime = null;
+			function step(ts) {
+				if (startTime === null) startTime = ts;
+				var p = Math.min((ts - startTime) / duration, 1);
+				var eased = 1 - Math.pow(1 - p, 3);
+				var current = start + (end - start) * eased;
+				el.textContent = current.toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+				if (p < 1) requestAnimationFrame(step);
+			}
+			requestAnimationFrame(step);
+		});
+	}
+
+	function initProgress() {
+		onVisible(Array.prototype.slice.call(document.querySelectorAll('[data-ob-progress]')), function (el) {
+			var pct = parseFloat(el.getAttribute('data-percent')) || 0;
+			requestAnimationFrame(function () { el.style.width = Math.max(0, Math.min(100, pct)) + '%'; });
+		});
+	}
 
 	function bindForm(form) {
 		form.addEventListener('submit', function (e) {

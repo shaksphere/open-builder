@@ -30,12 +30,15 @@ class Frontend {
 		wp_register_style( 'openb-frontend', OPENB_URL . 'assets/css/frontend.css', [], OPENB_VERSION );
 		wp_register_script( 'openb-frontend', OPENB_URL . 'assets/js/frontend.js', [], OPENB_VERSION, true );
 
-		if ( is_singular() && Post_Types::is_enabled( get_queried_object_id() ) ) {
+		$singular_enabled = is_singular() && Post_Types::is_enabled( get_queried_object_id() );
+		$theme_builder    = Plugin::instance()->theme_builder && Plugin::instance()->theme_builder->applies_to_request();
+
+		if ( $singular_enabled || $theme_builder ) {
 			wp_enqueue_style( 'openb-frontend' );
 			wp_enqueue_script( 'openb-frontend' );
 			wp_localize_script( 'openb-frontend', 'OPENB_FRONT', [
 				'restUrl' => esc_url_raw( rest_url( Rest::NS ) ),
-				'postId'  => get_queried_object_id(),
+				'postId'  => is_singular() ? get_queried_object_id() : 0,
 			] );
 		}
 	}

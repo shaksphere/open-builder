@@ -47,6 +47,18 @@ class Widgets {
 			'class-widget-site-logo.php',
 			'class-widget-nav-menu.php',
 			'class-widget-posts.php',
+			'class-widget-video.php',
+			'class-widget-gallery.php',
+			'class-widget-icon-box.php',
+			'class-widget-list.php',
+			'class-widget-star-rating.php',
+			'class-widget-testimonial.php',
+			'class-widget-accordion.php',
+			'class-widget-tabs.php',
+			'class-widget-counter.php',
+			'class-widget-progress.php',
+			'class-widget-social-icons.php',
+			'class-widget-google-map.php',
 		];
 		foreach ( $files as $file ) {
 			require_once $dir . $file;
@@ -70,6 +82,18 @@ class Widgets {
 			Widget_Site_Logo::class,
 			Widget_Nav_Menu::class,
 			Widget_Posts::class,
+			Widget_Video::class,
+			Widget_Gallery::class,
+			Widget_Icon_Box::class,
+			Widget_List::class,
+			Widget_Star_Rating::class,
+			Widget_Testimonial::class,
+			Widget_Accordion::class,
+			Widget_Tabs::class,
+			Widget_Counter::class,
+			Widget_Progress::class,
+			Widget_Social_Icons::class,
+			Widget_Google_Map::class,
 		];
 
 		foreach ( $classes as $class ) {
