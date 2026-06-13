@@ -1,0 +1,68 @@
+/* Open Builder — front-end base styles. Intentionally light: user styles come
+   from the compiled per-node CSS. These are structural defaults + components. */
+
+.ob-root { width: 100%; }
+
+/* Sections */
+.ob-section, .ob-node[data-ob-type="section"] { width: 100%; }
+.ob-section__inner {
+	max-width: var(--ob-container, 1140px);
+	margin-left: auto;
+	margin-right: auto;
+	padding-left: 20px;
+	padding-right: 20px;
+	width: 100%;
+}
+
+/* Columns layout (flex; the gap/structure are emitted by the CSS generator) */
+.ob-columns { width: 100%; }
+.ob-column { width: 100%; }
+
+/* Headings & text inherit theme typography but normalize spacing */
+.ob-heading__text { margin: 0 0 .4em; line-height: 1.2; }
+.ob-heading__text a { color: inherit; text-decoration: none; }
+.ob-text__content { line-height: 1.6; }
+.ob-text__content :first-child { margin-top: 0; }
+.ob-text__content :last-child { margin-bottom: 0; }
+
+/* Button */
+.ob-button {
+	display: inline-block;
+	padding: 12px 24px;
+	border-radius: 6px;
+	font-weight: 600;
+	text-decoration: none;
+	cursor: pointer;
+	border: 2px solid transparent;
+	line-height: 1.2;
+	transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+}
+.ob-button--primary { background: var(--ob-color-primary, #2563eb); color: #fff; }
+.ob-button--primary:hover { background: var(--ob-color-secondary, #1d4ed8); }
+.ob-button--secondary { background: var(--ob-color-secondary, #7c3aed); color: #fff; }
+.ob-button--outline { background: transparent; color: var(--ob-color-primary, #2563eb); border-color: currentColor; }
+.ob-button--outline:hover { background: var(--ob-color-primary, #2563eb); color: #fff; }
+
+/* Image */
+.ob-image__img { max-width: 100%; height: auto; display: block; }
+.ob-image__placeholder { background: #f3f4f6; color: #9ca3af; padding: 40px; text-align: center; border-radius: 6px; font-size: 14px; }
+
+/* Icon */
+.ob-icon__svg { display: inline-block; vertical-align: middle; }
+
+/* Divider / spacer */
+.ob-divider { margin: 0; }
+
+/* Form */
+.ob-form { display: grid; gap: 16px; max-width: 560px; }
+.ob-form__field { display: grid; gap: 6px; }
+.ob-form__field label { font-weight: 600; font-size: 14px; }
+.ob-form__req { color: #dc2626; }
+.ob-form input, .ob-form textarea {
+	width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font: inherit; font-size: 15px;
+}
+.ob-form input:focus, .ob-form textarea:focus { outline: none; border-color: var(--ob-color-primary, #2563eb); box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
+.ob-form__message { font-size: 14px; }
+.ob-form__message.is-success { color: #15803d; }
+.ob-form__message.is-error { color: #b91c1c; }
+.ob-form.is-submitting { opacity: .7; pointer-events: none; }
