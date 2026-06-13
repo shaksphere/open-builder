@@ -29,6 +29,9 @@ final class Plugin {
 	/** @var Global_Styles */
 	public $global_styles;
 
+	/** @var Theme_Builder */
+	public $theme_builder;
+
 	public static function instance(): Plugin {
 		if ( null === self::$instance ) {
 			self::$instance = new self();
@@ -44,12 +47,14 @@ final class Plugin {
 		$includes = OPENB_DIR . 'includes/';
 		require_once $includes . 'class-security.php';
 		require_once $includes . 'class-post-types.php';
+		require_once $includes . 'class-render-context.php';
 		require_once $includes . 'class-global-styles.php';
 		require_once $includes . 'class-widgets.php';
 		require_once $includes . 'class-css-generator.php';
 		require_once $includes . 'class-renderer.php';
 		require_once $includes . 'class-forms.php';
 		require_once $includes . 'class-rest.php';
+		require_once $includes . 'class-theme-builder.php';
 		require_once $includes . 'class-editor.php';
 		require_once $includes . 'class-frontend.php';
 		require_once $includes . 'class-admin.php';
@@ -68,6 +73,9 @@ final class Plugin {
 		$this->rest          = new Rest( $this->widgets, $this->renderer, $this->global_styles, $this->forms );
 		$this->forms->register_hooks();
 		$this->rest->register_hooks();
+
+		$this->theme_builder = new Theme_Builder();
+		$this->theme_builder->register_hooks();
 
 		( new Editor() )->register_hooks();
 		( new Frontend( $this->renderer ) )->register_hooks();

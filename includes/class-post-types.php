@@ -38,7 +38,9 @@ class Post_Types {
 			'public'       => false,
 			'show_ui'      => true,
 			'show_in_menu' => false,
-			'supports'     => [ 'title', 'editor', 'revisions' ],
+			// No 'editor' support: templates are built with Open Builder, and the
+			// classic edit screen submits our condition meta boxes reliably.
+			'supports'     => [ 'title', 'revisions' ],
 			'rewrite'      => false,
 			'capability_type' => 'post',
 		] );

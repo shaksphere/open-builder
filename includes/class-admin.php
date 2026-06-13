@@ -30,6 +30,14 @@ class Admin {
 
 		add_submenu_page(
 			'open-builder',
+			__( 'Templates', 'open-builder' ),
+			__( 'Templates', 'open-builder' ),
+			'edit_pages',
+			'edit.php?post_type=' . Post_Types::CPT_TEMPLATE
+		);
+
+		add_submenu_page(
+			'open-builder',
 			__( 'Form Entries', 'open-builder' ),
 			__( 'Form Entries', 'open-builder' ),
 			'edit_pages',
@@ -56,6 +64,35 @@ class Admin {
 			}
 			echo '</ul>';
 		}
+
+		// Theme Builder section.
+		echo '<h2>' . esc_html__( 'Theme Builder', 'open-builder' ) . '</h2>';
+		echo '<p>' . esc_html__( 'Design global headers, footers and templates, then assign them with display conditions.', 'open-builder' ) . '</p>';
+		$new_url = admin_url( 'post-new.php?post_type=' . Post_Types::CPT_TEMPLATE );
+		echo '<p>';
+		printf( '<a class="button button-primary" href="%s">%s</a> ', esc_url( $new_url ), esc_html__( 'New Template', 'open-builder' ) );
+		printf( '<a class="button" href="%s">%s</a>', esc_url( admin_url( 'edit.php?post_type=' . Post_Types::CPT_TEMPLATE ) ), esc_html__( 'All Templates', 'open-builder' ) );
+		echo '</p>';
+
+		$templates = get_posts( [ 'post_type' => Post_Types::CPT_TEMPLATE, 'numberposts' => 50 ] );
+		if ( $templates ) {
+			echo '<table class="widefat striped" style="max-width:760px"><thead><tr><th>' . esc_html__( 'Template', 'open-builder' ) . '</th><th>' . esc_html__( 'Type', 'open-builder' ) . '</th><th></th></tr></thead><tbody>';
+			$types = Theme_Builder::types();
+			foreach ( $templates as $tpl ) {
+				$type = get_post_meta( $tpl->ID, Theme_Builder::META_TYPE, true );
+				printf(
+					'<tr><td><strong>%s</strong></td><td>%s</td><td><a class="button button-small button-primary" href="%s">%s</a> <a class="button button-small" href="%s">%s</a></td></tr>',
+					esc_html( get_the_title( $tpl ) ),
+					esc_html( $types[ $type ] ?? $type ),
+					esc_url( Editor::edit_url( $tpl->ID ) ),
+					esc_html__( 'Edit', 'open-builder' ),
+					esc_url( get_edit_post_link( $tpl->ID ) ),
+					esc_html__( 'Conditions', 'open-builder' )
+				);
+			}
+			echo '</tbody></table>';
+		}
+
 		echo '</div>';
 	}
 

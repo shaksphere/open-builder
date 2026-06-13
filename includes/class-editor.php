@@ -131,6 +131,8 @@ class Editor {
 	 */
 	private function render_preview( int $post_id ): void {
 		$plugin = Plugin::instance();
+		// Editor preview: dynamic widgets render placeholders, not live data.
+		Render_Context::set( Render_Context::MODE_EDITOR );
 		$tree   = Post_Types::get_tree( $post_id );
 		$html   = $plugin->renderer->render_tree( $tree );
 		$css    = $plugin->renderer->compile_css( $tree, $plugin->global_styles );

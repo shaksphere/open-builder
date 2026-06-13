@@ -104,6 +104,8 @@ class Rest {
 	}
 
 	public function render( \WP_REST_Request $request ): \WP_REST_Response {
+		// Live editor preview: dynamic widgets show placeholders.
+		Render_Context::set( Render_Context::MODE_EDITOR );
 		$tree = $this->read_tree( $request );
 		$html = $this->renderer->render_tree( $tree );
 		$css  = $this->renderer->compile_css( $tree, $this->globals );
