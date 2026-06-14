@@ -49,6 +49,15 @@ class Renderer {
 			}
 		}
 
+		// In the editor, give empty containers a visible, droppable placeholder
+		// so they don't collapse to 0px and become impossible drag targets.
+		if ( '' === $inner_html && $widget->is_container() && Render_Context::is_editor() ) {
+			$inner_html = sprintf(
+				'<div class="ob-empty-dropzone" aria-hidden="true">%s</div>',
+				esc_html__( 'Drop a widget here', 'open-builder' )
+			);
+		}
+
 		$rendered = $widget->render( (array) $content, $inner_html, $node );
 
 		// Wrapper carries the scoping class + any user CSS id/classes.

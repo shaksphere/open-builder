@@ -77,15 +77,29 @@
 	function newNode(type) {
 		var def = WIDGETS[type];
 		var content = def && def.defaults ? deepClone(def.defaults) : {};
-		var node = { id: uid(), type: type, settings: { content: content, style: {}, advanced: { css_id: '', css_classes: '', custom_css: '' } }, children: [] };
+		var node = { id: uid(), type: type, settings: { content: content, style: defaultStyle(type), advanced: { css_id: '', css_classes: '', custom_css: '' } }, children: [] };
 		// Seed nested defaults for the columns layout: two columns.
 		if (type === 'columns') {
 			node.children = [makeColumn(), makeColumn()];
 		}
 		return node;
 	}
+	// Standard starting sizes so new containers have presence (like Elementor/
+	// Breakdance) instead of collapsing to 0px.
+	function defaultStyle(type) {
+		if (type === 'section') {
+			return { desktop: { 'padding-top': '60px', 'padding-bottom': '60px', 'padding-left': '20px', 'padding-right': '20px', 'min-height': '100px' } };
+		}
+		if (type === 'columns') {
+			return { desktop: { 'padding-top': '10px', 'padding-bottom': '10px', 'min-height': '80px' } };
+		}
+		if (type === 'column') {
+			return { desktop: { 'padding-top': '10px', 'padding-bottom': '10px', 'padding-left': '10px', 'padding-right': '10px', 'min-height': '60px' } };
+		}
+		return {};
+	}
 	function makeColumn() {
-		return { id: uid(), type: 'column', settings: { content: {}, style: {}, advanced: { css_id: '', css_classes: '', custom_css: '' } }, children: [] };
+		return { id: uid(), type: 'column', settings: { content: {}, style: defaultStyle('column'), advanced: { css_id: '', css_classes: '', custom_css: '' } }, children: [] };
 	}
 
 	function pushHistory() {
