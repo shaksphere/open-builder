@@ -79,9 +79,11 @@ class Editor {
 			'viewUrl'     => get_permalink( $post_id ),
 			'widgets'     => $plugin->widgets->schema_for_editor(),
 			'globals'     => $plugin->global_styles->get(),
-			'tree'        => $tree,
-			'icons'       => Widget_Icon::set(),
-			'canManage'   => Security::can_manage(),
+			'tree'         => $tree,
+			'icons'        => Widget_Icon::set(),
+			'canManage'    => Security::can_manage(),
+			'pageSettings' => Post_Types::get_page_settings( $post_id ),
+			'canCustomJs'  => current_user_can( 'unfiltered_html' ),
 		];
 
 		// Make the WordPress media library available inside our custom document

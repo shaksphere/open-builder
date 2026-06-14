@@ -111,6 +111,10 @@
 /* Editor placeholders for dynamic widgets */
 .ob-dynamic { outline: 1px dashed rgba(37,99,235,.4); outline-offset: 2px; }
 
+/* Page-settings layouts (best-effort across themes) */
+.openb-layout-full .ob-section__inner { max-width: none; }
+.openb-layout-boxed .ob-root { max-width: var(--ob-container, 1140px); margin-left: auto; margin-right: auto; }
+
 /* ----- Video ----- */
 .ob-video { position: relative; width: 100%; overflow: hidden; border-radius: 8px; background: #000; }
 .ob-video--16-9 { aspect-ratio: 16 / 9; }

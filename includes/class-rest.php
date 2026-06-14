@@ -96,6 +96,26 @@ class Rest {
 
 		Post_Types::save_tree( $post_id, $tree, $css );
 
+		// Optional page settings (layout, background, custom CSS/JS, body classes).
+		$page = $request->get_param( 'page_settings' );
+		if ( is_string( $page ) ) {
+			$page = json_decode( $page, true );
+		}
+		if ( is_array( $page ) ) {
+			$clean_page = Security::sanitize_page_settings( $page, current_user_can( 'unfiltered_html' ) );
+			Post_Types::save_page_settings( $post_id, $clean_page );
+		}
+
+		// Optional title update.
+		$title = $request->get_param( 'title' );
+		if ( is_string( $title ) && '' !== trim( $title ) ) {
+			$current = get_post_field( 'post_title', $post_id );
+			$clean   = sanitize_text_field( wp_unslash( $title ) );
+			if ( $clean !== $current ) {
+				wp_update_post( [ 'ID' => $post_id, 'post_title' => $clean ] );
+			}
+		}
+
 		return new \WP_REST_Response( [
 			'success' => true,
 			'message' => __( 'Saved', 'open-builder' ),

@@ -197,6 +197,29 @@ textarea.openb-input { resize: vertical; }
 .openb-colorpop__panel { position: absolute; right: 0; top: 34px; z-index: 20; background: #fff; border: 1px solid var(--ob-border); border-radius: 8px; padding: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.14); width: 220px; display: flex; flex-direction: column; gap: 8px; }
 .openb-colorpop__panel input[type="color"] { width: 100%; height: 32px; border: none; background: none; cursor: pointer; padding: 0; }
 
+/* Context menu */
+.openb-ctxmenu { position: fixed; z-index: 200; background: #fff; border: 1px solid var(--ob-border); border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,.18); padding: 5px; min-width: 168px; }
+.openb-ctxmenu__item { display: flex; align-items: center; gap: 10px; width: 100%; border: none; background: none; padding: 8px 10px; font-size: 13px; cursor: pointer; border-radius: 6px; color: var(--ob-text); text-align: left; }
+.openb-ctxmenu__item:hover { background: #f1f2f5; }
+.openb-ctxmenu__item.is-danger { color: #b91c1c; }
+.openb-ctxmenu__item.is-danger:hover { background: #fef2f2; }
+.openb-ctxmenu__item.is-disabled { opacity: .4; cursor: default; }
+.openb-ctxmenu__item.is-disabled:hover { background: none; }
+.openb-ctxmenu__icon { width: 16px; text-align: center; font-size: 13px; flex: 0 0 auto; }
+.openb-ctxmenu__sep { height: 1px; background: var(--ob-border); margin: 4px 6px; }
+
+/* Modal */
+.openb-modal-overlay { position: fixed; inset: 0; background: rgba(17,24,40,.5); z-index: 150; display: flex; align-items: flex-start; justify-content: center; padding: 60px 16px; overflow-y: auto; }
+.openb-modal { background: #fff; border-radius: 12px; width: 100%; max-width: 540px; box-shadow: 0 20px 60px rgba(0,0,0,.3); display: flex; flex-direction: column; max-height: calc(100vh - 120px); }
+.openb-modal__head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--ob-border); }
+.openb-modal__title { font-weight: 700; font-size: 16px; }
+.openb-modal__body { padding: 18px 20px; overflow-y: auto; }
+.openb-modal__foot { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--ob-border); }
+.openb-modal .openb-btn { background: #eef0f4; color: var(--ob-text); }
+.openb-modal .openb-btn:hover { background: #e2e5ea; }
+.openb-modal .openb-btn--primary { background: var(--ob-primary); color: #fff; }
+.openb-modal .openb-btn--primary:hover { background: var(--ob-primary-dark); }
+
 /* In-canvas editing affordances (applied inside the iframe document via classes
    that we also ship in frontend... but the iframe loads frontend.css only, so
    we inject these through the dynamic style below). */

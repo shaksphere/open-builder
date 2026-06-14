@@ -4,7 +4,7 @@ Tags: page builder, visual builder, drag and drop, editor, landing page
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.3.0
+Stable tag: 1.4.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -57,6 +57,11 @@ As a sanitized JSON tree in post meta (`_openb_tree`), with compiled CSS cached
 in `_openb_compiled_css`.
 
 == Changelog ==
+
+= 1.4.0 =
+* Right-click context menu on canvas blocks and layer rows: Edit, Copy, Cut, Paste (inside/after), Duplicate, Move Up/Down, Delete.
+* Clipboard with copy/cut/paste across pages (localStorage) and keyboard shortcuts (Cmd/Ctrl+C/X/V/D, Delete).
+* Page Settings panel: title, layout (default/full/boxed), hide title, content max-width, page background, body classes, per-page custom CSS, and per-page custom JS (gated behind the unfiltered_html capability and only emitted for capable authors).
 
 = 1.3.0 =
 * Visual style controls replacing raw text inputs: icon button-groups, slider + unit pickers, linked 4-side padding/margin box (with link toggle), color popover (native picker + brand swatches), border builder, and box-shadow builder.

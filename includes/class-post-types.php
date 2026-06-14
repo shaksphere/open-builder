@@ -12,6 +12,7 @@ class Post_Types {
 	const META_TREE     = '_openb_tree';
 	const META_ENABLED  = '_openb_enabled';
 	const META_CSS      = '_openb_compiled_css';
+	const META_PAGE     = '_openb_page_settings';
 	const CPT_TEMPLATE  = 'openb_template';
 	const CPT_POPUP     = 'openb_popup';
 
@@ -101,5 +102,15 @@ class Post_Types {
 		update_post_meta( $post_id, self::META_TREE, wp_slash( wp_json_encode( $tree ) ) );
 		update_post_meta( $post_id, self::META_CSS, wp_slash( $compiled_css ) );
 		update_post_meta( $post_id, self::META_ENABLED, ! empty( $tree ) );
+	}
+
+	public static function get_page_settings( int $post_id ): array {
+		$raw = get_post_meta( $post_id, self::META_PAGE, true );
+		$data = is_array( $raw ) ? $raw : json_decode( (string) $raw, true );
+		return is_array( $data ) ? $data : [];
+	}
+
+	public static function save_page_settings( int $post_id, array $settings ): void {
+		update_post_meta( $post_id, self::META_PAGE, wp_slash( wp_json_encode( $settings ) ) );
 	}
 }

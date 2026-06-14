@@ -15,6 +15,43 @@ class Security {
 		return current_user_can( 'edit_post', $post_id );
 	}
 
+	/**
+	 * Sanitize page settings from the editor.
+	 *
+	 * @param array $in       Raw incoming settings.
+	 * @param bool  $allow_js Whether the current user may store/run custom JS
+	 *                        (mirrors the unfiltered_html capability).
+	 */
+	public static function sanitize_page_settings( array $in, bool $allow_js ): array {
+		$layouts = [ 'default', 'full', 'boxed', 'canvas' ];
+		$layout  = (string) ( $in['layout'] ?? 'default' );
+
+		$out = [
+			'layout'       => in_array( $layout, $layouts, true ) ? $layout : 'default',
+			'hide_title'   => ! empty( $in['hide_title'] ),
+			'content_width'=> self::sanitize_css_value( (string) ( $in['content_width'] ?? '' ) ),
+			'background'   => self::sanitize_color( (string) ( $in['background'] ?? '' ) ),
+			'body_classes' => self::sanitize_class_list( (string) ( $in['body_classes'] ?? '' ) ),
+			'custom_css'   => self::sanitize_custom_css( (string) ( $in['custom_css'] ?? '' ) ),
+			'custom_js'    => '',
+			'js_allowed'   => false,
+		];
+
+		// Custom JS is only stored (and later emitted) for capable users.
+		if ( $allow_js && ! empty( $in['custom_js'] ) ) {
+			$js = (string) $in['custom_js'];
+			if ( strlen( $js ) > 50000 ) {
+				$js = substr( $js, 0, 50000 );
+			}
+			// Strip a closing script tag so the value can't break out of <script>.
+			$js = str_ireplace( '</script', '<\/script', $js );
+			$out['custom_js']  = $js;
+			$out['js_allowed'] = true;
+		}
+
+		return $out;
+	}
+
 	/** Capability required to manage global settings / forms. */
 	public static function can_manage(): bool {
 		return current_user_can( 'manage_options' );

@@ -47,6 +47,9 @@
 	var state = {
 		tree: Array.isArray(BOOT.tree) ? BOOT.tree : [],
 		globals: BOOT.globals || { colors: [], fonts: [], sizes: [] },
+		pageSettings: BOOT.pageSettings && typeof BOOT.pageSettings === 'object' ? BOOT.pageSettings : {},
+		title: BOOT.postTitle || '',
+		clipboard: loadClipboard(),
 		selectedId: null,
 		device: 'desktop',
 		dirty: false,
@@ -54,6 +57,15 @@
 		future: [],
 		drag: null // { mode:'new'|'move', type|id }
 	};
+
+	// Clipboard persists across pages via localStorage (best-effort).
+	function loadClipboard() {
+		try { return JSON.parse(localStorage.getItem('openb_clipboard') || 'null'); } catch (e) { return null; }
+	}
+	function saveClipboard(node) {
+		state.clipboard = node;
+		try { localStorage.setItem('openb_clipboard', JSON.stringify(node)); } catch (e) {}
+	}
 
 	/* ----------------------------------------------------------------------- *
 	 * Small helpers
@@ -221,6 +233,7 @@
 			n.addEventListener('dragover', onCanvasDragOver);
 			n.addEventListener('drop', onCanvasDrop);
 			n.addEventListener('dragleave', onCanvasDragLeave);
+			n.addEventListener('contextmenu', onCanvasContextMenu);
 		});
 		// Root-level drop when empty or dropping at the end. The #openb-canvas
 		// container persists across re-renders, so attach its listeners once.
@@ -237,6 +250,17 @@
 		e.preventDefault();
 		var id = this.getAttribute('data-ob-id');
 		selectNode(id);
+	}
+
+	function onCanvasContextMenu(e) {
+		e.preventDefault();
+		e.stopPropagation();
+		var id = this.getAttribute('data-ob-id');
+		selectNode(id);
+		// Translate iframe-relative coords into the parent document.
+		var frame = document.getElementById('openb-canvas-frame');
+		var rect = frame ? frame.getBoundingClientRect() : { left: 0, top: 0 };
+		showContextMenu(rect.left + e.clientX, rect.top + e.clientY, nodeMenuItems(id));
 	}
 
 	function onCanvasDragOver(e) {
@@ -359,6 +383,7 @@
 			el('div', { class: 'openb-topbar__right' }, [
 				el('button', { class: 'openb-btn', title: 'Undo', onclick: undo }, [svg('M7 7L3 11l4 4M3 11h10a4 4 0 010 8h-2')]),
 				el('button', { class: 'openb-btn', title: 'Redo', onclick: redo }, [svg('M13 7l4 4-4 4M17 11H7a4 4 0 000 8h2')]),
+				el('button', { class: 'openb-btn', title: 'Page Settings', onclick: openPageSettings }, [svg('M10 3l1.5 2.6 3-.5-.5 3L16.5 11l-2.5 1.4.5 3-3-.5L10 17l-1.5-2.6-3 .5.5-3L3.5 9l2.5-1.4-.5-3 3 .5z'), ' Page']),
 				el('a', { class: 'openb-btn', href: BOOT.viewUrl, target: '_blank', rel: 'noopener' }, ['View']),
 				el('a', { class: 'openb-btn', href: BOOT.exitUrl }, ['Exit']),
 				saveBtn
@@ -1102,7 +1127,8 @@
 			var row = el('div', {
 				class: 'openb-layer' + (n.id === state.selectedId ? ' is-selected' : ''),
 				style: 'padding-left:' + (8 + depth * 14) + 'px',
-				onclick: function (e) { e.stopPropagation(); selectNode(n.id); }
+				onclick: function (e) { e.stopPropagation(); selectNode(n.id); },
+				oncontextmenu: function (e) { e.preventDefault(); e.stopPropagation(); selectNode(n.id); showContextMenu(e.clientX, e.clientY, nodeMenuItems(n.id)); }
 			}, [
 				el('span', { class: 'openb-layer__icon', html: widgetIcon(def.icon) }),
 				el('span', { class: 'openb-layer__name', text: def.title }),
@@ -1170,6 +1196,103 @@
 		if (state.selectedId === id) state.selectedId = null;
 		markDirty(); renderCanvas(); renderLayers(); renderInspector();
 	}
+	function copyNode(id) {
+		var hit = findNode(id);
+		if (!hit) return;
+		saveClipboard(deepClone(hit.node));
+		toast('Copied');
+	}
+	function cutNode(id) {
+		copyNode(id);
+		deleteNode(id);
+	}
+	// Paste after the target node (or into it if it's an empty container).
+	function pasteNode(targetId) {
+		if (!state.clipboard) { toast('Clipboard is empty', true); return; }
+		pushHistory();
+		var copy = deepClone(state.clipboard);
+		reId(copy);
+		var hit = targetId ? findNode(targetId) : null;
+		if (hit && WIDGETS[hit.node.type] && WIDGETS[hit.node.type].isContainer) {
+			hit.node.children = hit.node.children || [];
+			hit.node.children.push(copy);
+		} else if (hit) {
+			hit.list.splice(hit.index + 1, 0, copy);
+		} else {
+			state.tree.push(copy);
+		}
+		markDirty(); renderCanvas(); renderLayers(); selectNode(copy.id, true);
+	}
+	function moveUp(id) {
+		var hit = findNode(id);
+		if (!hit || hit.index === 0) return;
+		pushHistory();
+		var n = hit.list.splice(hit.index, 1)[0];
+		hit.list.splice(hit.index - 1, 0, n);
+		markDirty(); renderCanvas(); renderLayers();
+	}
+	function moveDown(id) {
+		var hit = findNode(id);
+		if (!hit || hit.index >= hit.list.length - 1) return;
+		pushHistory();
+		var n = hit.list.splice(hit.index, 1)[0];
+		hit.list.splice(hit.index + 1, 0, n);
+		markDirty(); renderCanvas(); renderLayers();
+	}
+
+	/* ----------------------------------------------------------------------- *
+	 * Context menu (right-click on canvas blocks and layer rows)
+	 * ----------------------------------------------------------------------- */
+	function nodeMenuItems(id) {
+		var hit = findNode(id);
+		var isContainer = hit && WIDGETS[hit.node.type] && WIDGETS[hit.node.type].isContainer;
+		return [
+			{ label: 'Edit', icon: '✎', fn: function () { selectNode(id); } },
+			{ label: 'Copy', icon: '⧉', fn: function () { copyNode(id); } },
+			{ label: 'Cut', icon: '✂', fn: function () { cutNode(id); } },
+			{ label: state.clipboard ? (isContainer ? 'Paste inside' : 'Paste after') : 'Paste', icon: '📋', disabled: !state.clipboard, fn: function () { pasteNode(id); } },
+			{ label: 'Duplicate', icon: '⎘', fn: function () { duplicateNode(id); } },
+			{ sep: true },
+			{ label: 'Move Up', icon: '↑', fn: function () { moveUp(id); } },
+			{ label: 'Move Down', icon: '↓', fn: function () { moveDown(id); } },
+			{ sep: true },
+			{ label: 'Delete', icon: '🗑', danger: true, fn: function () { deleteNode(id); } }
+		];
+	}
+
+	function showContextMenu(x, y, items) {
+		closeContextMenu();
+		var menu = el('div', { class: 'openb-ctxmenu', id: 'openb-ctxmenu' });
+		items.forEach(function (it) {
+			if (it.sep) { menu.appendChild(el('div', { class: 'openb-ctxmenu__sep' })); return; }
+			var item = el('button', {
+				class: 'openb-ctxmenu__item' + (it.danger ? ' is-danger' : '') + (it.disabled ? ' is-disabled' : ''),
+				onclick: function () { if (it.disabled) return; closeContextMenu(); it.fn(); }
+			}, [
+				el('span', { class: 'openb-ctxmenu__icon', text: it.icon || '' }),
+				el('span', { text: it.label })
+			]);
+			menu.appendChild(item);
+		});
+		document.body.appendChild(menu);
+		// Keep within viewport.
+		var w = menu.offsetWidth, h = menu.offsetHeight;
+		var vw = window.innerWidth, vh = window.innerHeight;
+		menu.style.left = Math.min(x, vw - w - 8) + 'px';
+		menu.style.top = Math.min(y, vh - h - 8) + 'px';
+		setTimeout(function () {
+			document.addEventListener('click', closeContextMenu, { once: true });
+			document.addEventListener('keydown', escClose);
+			var cdoc = canvasDoc();
+			if (cdoc) cdoc.addEventListener('click', closeContextMenu, { once: true });
+		}, 0);
+	}
+	function escClose(e) { if (e.key === 'Escape') closeContextMenu(); }
+	function closeContextMenu() {
+		var m = document.getElementById('openb-ctxmenu');
+		if (m) m.parentNode.removeChild(m);
+		document.removeEventListener('keydown', escClose);
+	}
 
 	/* ----------------------------------------------------------------------- *
 	 * History / device / save
@@ -1205,7 +1328,12 @@
 	function save() {
 		var btn = document.getElementById('openb-save');
 		if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
-		api('/save', { post_id: BOOT.postId, tree: state.tree }).then(function (res) {
+		api('/save', {
+			post_id: BOOT.postId,
+			tree: state.tree,
+			page_settings: state.pageSettings,
+			title: state.title
+		}).then(function (res) {
 			if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
 			if (res.ok) { state.dirty = false; toast('Saved'); }
 			else toast('Save failed', true);
@@ -1215,14 +1343,75 @@
 		});
 	}
 
+	/* ----------------------------------------------------------------------- *
+	 * Page settings modal
+	 * ----------------------------------------------------------------------- */
+	function openPageSettings() {
+		var ps = state.pageSettings;
+		var overlay = el('div', { class: 'openb-modal-overlay', onclick: function (e) { if (e.target === overlay) closeModal(); } });
+		var body = el('div', { class: 'openb-modal__body' });
+
+		// Title
+		var titleField = controlField({ type: 'text', label: 'Page Title' }, state.title, function (v) { state.title = v; markDirty(); });
+		body.appendChild(titleField);
+
+		body.appendChild(controlField({ type: 'select', label: 'Layout', choices: { 'default': 'Theme Default', full: 'Full Width', boxed: 'Boxed' } }, ps.layout || 'default', function (v) { ps.layout = v; markDirty(); }));
+		body.appendChild(controlField({ type: 'toggle', label: 'Hide page title' }, !!ps.hide_title, function (v) { ps.hide_title = v; markDirty(); }));
+		body.appendChild(controlField({ type: 'text', label: 'Content Max Width (e.g. 1140px)' }, ps.content_width || '', function (v) { ps.content_width = v; markDirty(); }));
+		body.appendChild(colorPopoverRow('Page Background', ps.background || '', function (v) { ps.background = v; markDirty(); }));
+		body.appendChild(controlField({ type: 'text', label: 'Body CSS Classes' }, ps.body_classes || '', function (v) { ps.body_classes = v; markDirty(); }));
+
+		body.appendChild(el('div', { class: 'openb-stylegroup__title', text: 'Custom CSS (page)' }));
+		body.appendChild(controlField({ type: 'textarea', label: '' }, ps.custom_css || '', function (v) { ps.custom_css = v; markDirty(); }));
+		body.appendChild(el('p', { class: 'openb-hint', text: 'Applies to this page only. Use normal CSS selectors.' }));
+
+		if (BOOT.canCustomJs) {
+			body.appendChild(el('div', { class: 'openb-stylegroup__title', text: 'Custom JS (page)' }));
+			body.appendChild(controlField({ type: 'textarea', label: '' }, ps.custom_js || '', function (v) { ps.custom_js = v; markDirty(); }));
+			body.appendChild(el('p', { class: 'openb-hint', text: 'Runs in the page footer. No <script> tags needed.' }));
+		} else {
+			body.appendChild(el('p', { class: 'openb-hint', text: 'Custom JS requires the unfiltered_html capability (administrators on single-site).' }));
+		}
+
+		var modal = el('div', { class: 'openb-modal' }, [
+			el('div', { class: 'openb-modal__head' }, [
+				el('span', { class: 'openb-modal__title', text: 'Page Settings' }),
+				el('button', { class: 'openb-iconbtn', text: '×', title: 'Close', onclick: closeModal })
+			]),
+			body,
+			el('div', { class: 'openb-modal__foot' }, [
+				el('button', { class: 'openb-btn', onclick: closeModal }, ['Close']),
+				el('button', { class: 'openb-btn openb-btn--primary', onclick: function () { closeModal(); save(); } }, ['Save'])
+			])
+		]);
+		overlay.appendChild(modal);
+		document.body.appendChild(overlay);
+	}
+	function closeModal() {
+		var m = document.querySelector('.openb-modal-overlay');
+		if (m) m.parentNode.removeChild(m);
+	}
+
 	function markDirty() { state.dirty = true; }
 
 	window.addEventListener('beforeunload', function (e) {
 		if (state.dirty) { e.preventDefault(); e.returnValue = ''; }
 	});
 	document.addEventListener('keydown', function (e) {
-		if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') { e.preventDefault(); save(); }
-		if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
+		var mod = e.metaKey || e.ctrlKey;
+		if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); save(); return; }
+		if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+
+		// Element shortcuts only when not typing in a field.
+		var tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+		if (tag === 'input' || tag === 'textarea' || tag === 'select' || (e.target && e.target.isContentEditable)) return;
+		if (!state.selectedId) return;
+
+		if (mod && e.key.toLowerCase() === 'c') { e.preventDefault(); copyNode(state.selectedId); }
+		else if (mod && e.key.toLowerCase() === 'x') { e.preventDefault(); cutNode(state.selectedId); }
+		else if (mod && e.key.toLowerCase() === 'v') { e.preventDefault(); pasteNode(state.selectedId); }
+		else if (mod && e.key.toLowerCase() === 'd') { e.preventDefault(); duplicateNode(state.selectedId); }
+		else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteNode(state.selectedId); }
 	});
 
 	/* ----------------------------------------------------------------------- *
