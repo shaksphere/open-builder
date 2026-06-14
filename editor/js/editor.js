@@ -13,6 +13,34 @@
 	var BOOT = window.OPENB_BOOT || {};
 	var WIDGETS = BOOT.widgets || {};
 
+	/* Inline SVG glyphs for the visual style controls (16px, stroke=currentColor). */
+	function _svg(inner) {
+		return '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + inner + '</svg>';
+	}
+	var STYLE_ICON = {
+		alignLeft: _svg('<path d="M4 6h16M4 10h10M4 14h16M4 18h10"/>'),
+		alignCenter: _svg('<path d="M4 6h16M7 10h10M4 14h16M7 18h10"/>'),
+		alignRight: _svg('<path d="M4 6h16M10 10h10M4 14h16M10 18h10"/>'),
+		alignJustify: _svg('<path d="M4 6h16M4 10h16M4 14h16M4 18h16"/>'),
+		dirRow: _svg('<rect x="3" y="6" width="5" height="12" rx="1"/><rect x="10" y="6" width="5" height="12" rx="1"/><rect x="17" y="6" width="4" height="12" rx="1"/>'),
+		dirColumn: _svg('<rect x="6" y="3" width="12" height="5" rx="1"/><rect x="6" y="10" width="12" height="5" rx="1"/><rect x="6" y="17" width="12" height="4" rx="1"/>'),
+		justStart: _svg('<path d="M3 4v16"/><rect x="6" y="8" width="5" height="8" rx="1"/><rect x="13" y="8" width="5" height="8" rx="1"/>'),
+		justCenter: _svg('<path d="M12 4v16" stroke-dasharray="2 2"/><rect x="3" y="8" width="6" height="8" rx="1"/><rect x="15" y="8" width="6" height="8" rx="1"/>'),
+		justEnd: _svg('<path d="M21 4v16"/><rect x="6" y="8" width="5" height="8" rx="1"/><rect x="13" y="8" width="5" height="8" rx="1"/>'),
+		justBetween: _svg('<rect x="3" y="8" width="5" height="8" rx="1"/><rect x="16" y="8" width="5" height="8" rx="1"/>'),
+		alignStart: _svg('<path d="M4 4h16"/><rect x="7" y="7" width="4" height="10" rx="1"/><rect x="13" y="7" width="4" height="7" rx="1"/>'),
+		alignMiddle: _svg('<path d="M4 12h16" stroke-dasharray="2 2"/><rect x="7" y="7" width="4" height="10" rx="1"/><rect x="13" y="9" width="4" height="6" rx="1"/>'),
+		alignBottom: _svg('<path d="M4 20h16"/><rect x="7" y="7" width="4" height="10" rx="1"/><rect x="13" y="13" width="4" height="4" rx="1"/>'),
+		alignStretch: _svg('<path d="M4 4h16M4 20h16"/><rect x="7" y="7" width="4" height="10" rx="1"/><rect x="13" y="7" width="4" height="10" rx="1"/>'),
+		link: _svg('<path d="M9 12h6M10 8H8a4 4 0 000 8h2M14 8h2a4 4 0 010 8h-2"/>'),
+		borderSolid: _svg('<path d="M3 12h18"/>'),
+		borderDashed: _svg('<path d="M3 12h4M10 12h4M17 12h4"/>'),
+		borderDotted: _svg('<path d="M4 12h.01M8 12h.01M12 12h.01M16 12h.01M20 12h.01"/>'),
+		bgColor: _svg('<rect x="3" y="3" width="18" height="18" rx="2"/>'),
+		bgImage: _svg('<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="1.6"/><path d="M21 16l-5-4L5 21"/>'),
+		bgGradient: _svg('<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 17l18-9" opacity=".5"/>')
+	};
+
 	/* ----------------------------------------------------------------------- *
 	 * State
 	 * ----------------------------------------------------------------------- */
@@ -703,6 +731,8 @@
 		var bp = state.device;
 		node.settings.style = node.settings.style || {};
 		node.settings.style[bp] = node.settings.style[bp] || {};
+		node.settings.background = node.settings.background || {};
+		node.settings.background[bp] = node.settings.background[bp] || { type: 'none' };
 		var styleMap = node.settings.style[bp];
 
 		function setProp(prop, val) {
@@ -712,55 +742,331 @@
 		}
 		function get(prop) { return styleMap[prop] != null ? styleMap[prop] : ''; }
 
+		var isContainer = WIDGETS[node.type] && WIDGETS[node.type].isContainer;
 		var wrap = el('div', {});
-		wrap.appendChild(el('div', { class: 'openb-bpnote', text: 'Editing: ' + bp + ' (use the device switcher to target tablet/mobile)' }));
+		wrap.appendChild(el('div', { class: 'openb-bpnote', text: 'Editing ' + bp + ' — switch device to target tablet/mobile' }));
 
+		/* Alignment (horizontal text align for everything; flex both-axis for containers) */
+		var alignRows = [
+			iconGroupRow('Text Align', get('text-align'), [
+				{ val: 'left', title: 'Left', svg: STYLE_ICON.alignLeft },
+				{ val: 'center', title: 'Center', svg: STYLE_ICON.alignCenter },
+				{ val: 'right', title: 'Right', svg: STYLE_ICON.alignRight },
+				{ val: 'justify', title: 'Justify', svg: STYLE_ICON.alignJustify }
+			], function (v) { setProp('text-align', v); })
+		];
+		if (isContainer) {
+			alignRows.push(iconGroupRow('Direction', get('flex-direction'), [
+				{ val: 'row', title: 'Row (horizontal)', svg: STYLE_ICON.dirRow },
+				{ val: 'column', title: 'Column (vertical)', svg: STYLE_ICON.dirColumn }
+			], function (v) { if (v) setProp('display', 'flex'); setProp('flex-direction', v); }));
+			alignRows.push(iconGroupRow('Justify (main axis)', get('justify-content'), [
+				{ val: 'flex-start', title: 'Start', svg: STYLE_ICON.justStart },
+				{ val: 'center', title: 'Center', svg: STYLE_ICON.justCenter },
+				{ val: 'flex-end', title: 'End', svg: STYLE_ICON.justEnd },
+				{ val: 'space-between', title: 'Space between', svg: STYLE_ICON.justBetween }
+			], function (v) { if (v) setProp('display', 'flex'); setProp('justify-content', v); }));
+			alignRows.push(iconGroupRow('Align (cross axis)', get('align-items'), [
+				{ val: 'flex-start', title: 'Start', svg: STYLE_ICON.alignStart },
+				{ val: 'center', title: 'Center', svg: STYLE_ICON.alignMiddle },
+				{ val: 'flex-end', title: 'End', svg: STYLE_ICON.alignBottom },
+				{ val: 'stretch', title: 'Stretch', svg: STYLE_ICON.alignStretch }
+			], function (v) { if (v) setProp('display', 'flex'); setProp('align-items', v); }));
+			alignRows.push(unitSliderRow('Gap', get('gap'), { min: 0, max: 100, units: ['px', 'em', 'rem'] }, function (v) { setProp('gap', v); }));
+		}
+		wrap.appendChild(styleGroup('Alignment', alignRows));
+
+		/* Typography */
 		wrap.appendChild(styleGroup('Typography', [
-			textRow('Text color', get('color'), function (v) { setProp('color', v); }, true),
-			textRow('Font size', get('font-size'), function (v) { setProp('font-size', v); }),
-			selectRow('Text align', get('text-align'), { '': 'Default', left: 'Left', center: 'Center', right: 'Right', justify: 'Justify' }, function (v) { setProp('text-align', v); }),
-			textRow('Font weight', get('font-weight'), function (v) { setProp('font-weight', v); }),
-			textRow('Line height', get('line-height'), function (v) { setProp('line-height', v); })
+			colorPopoverRow('Text Color', get('color'), function (v) { setProp('color', v); }),
+			unitSliderRow('Font Size', get('font-size'), { min: 8, max: 120, units: ['px', 'em', 'rem', '%'] }, function (v) { setProp('font-size', v); }),
+			iconGroupRow('Weight', get('font-weight'), [
+				{ val: '300', title: 'Light', text: 'L' }, { val: '400', title: 'Normal', text: 'N' },
+				{ val: '600', title: 'Semibold', text: 'S' }, { val: '700', title: 'Bold', text: 'B' }
+			], function (v) { setProp('font-weight', v); }),
+			unitSliderRow('Line Height', get('line-height'), { min: 0.8, max: 3, step: 0.05, units: ['', 'px', 'em'] }, function (v) { setProp('line-height', v); }),
+			unitSliderRow('Letter Spacing', get('letter-spacing'), { min: -5, max: 20, step: 0.5, units: ['px', 'em'] }, function (v) { setProp('letter-spacing', v); }),
+			iconGroupRow('Transform', get('text-transform'), [
+				{ val: 'none', title: 'None', text: 'Aa' }, { val: 'uppercase', title: 'Uppercase', text: 'AA' },
+				{ val: 'lowercase', title: 'Lowercase', text: 'aa' }, { val: 'capitalize', title: 'Capitalize', text: 'Ab' }
+			], function (v) { setProp('text-transform', v); })
 		]));
 
-		wrap.appendChild(styleGroup('Background', [
-			textRow('Background', get('background-color'), function (v) { setProp('background-color', v); }, true)
-		]));
+		/* Background */
+		wrap.appendChild(styleGroup('Background', [backgroundBuilder(node, bp)]));
 
+		/* Spacing — linked box controls */
 		wrap.appendChild(styleGroup('Spacing', [
-			textRow('Padding', get('padding'), function (v) { setProp('padding', v); }),
-			textRow('Margin', get('margin'), function (v) { setProp('margin', v); })
+			linkedBoxRow('Padding', styleMap, 'padding', setProp),
+			linkedBoxRow('Margin', styleMap, 'margin', setProp)
 		]));
 
+		/* Size */
 		wrap.appendChild(styleGroup('Size', [
-			textRow('Width', get('width'), function (v) { setProp('width', v); }),
-			textRow('Max width', get('max-width'), function (v) { setProp('max-width', v); }),
-			textRow('Height', get('height'), function (v) { setProp('height', v); })
+			unitSliderRow('Width', get('width'), { min: 0, max: 1600, units: ['px', '%', 'vw', 'auto'] }, function (v) { setProp('width', v); }),
+			unitSliderRow('Max Width', get('max-width'), { min: 0, max: 1600, units: ['px', '%', 'vw'] }, function (v) { setProp('max-width', v); }),
+			unitSliderRow('Height', get('height'), { min: 0, max: 1200, units: ['px', '%', 'vh', 'auto'] }, function (v) { setProp('height', v); }),
+			unitSliderRow('Min Height', get('min-height'), { min: 0, max: 1200, units: ['px', 'vh'] }, function (v) { setProp('min-height', v); })
 		]));
 
-		wrap.appendChild(styleGroup('Border', [
-			textRow('Border width', get('border-width'), function (v) { setProp('border-width', v); }),
-			selectRow('Border style', get('border-style'), { '': 'None', solid: 'Solid', dashed: 'Dashed', dotted: 'Dotted' }, function (v) { setProp('border-style', v); }),
-			textRow('Border color', get('border-color'), function (v) { setProp('border-color', v); }, true),
-			textRow('Border radius', get('border-radius'), function (v) { setProp('border-radius', v); })
+		/* Border + radius */
+		wrap.appendChild(styleGroup('Border', [borderBuilder(styleMap, setProp, get)]));
+
+		/* Box shadow */
+		wrap.appendChild(styleGroup('Shadow', [shadowBuilder(get('box-shadow'), function (v) { setProp('box-shadow', v); })]));
+
+		/* Effects */
+		wrap.appendChild(styleGroup('Effects', [
+			unitSliderRow('Opacity', get('opacity'), { min: 0, max: 1, step: 0.05, units: [''], plain: true }, function (v) { setProp('opacity', v); })
 		]));
 
 		return wrap;
 	}
+
 	function styleGroup(title, rows) {
 		return el('div', { class: 'openb-stylegroup' }, [el('div', { class: 'openb-stylegroup__title', text: title })].concat(rows));
 	}
-	function textRow(label, value, onChange, isColor) {
-		if (isColor) return controlField({ type: 'color', label: label }, value, onChange);
-		var f = el('div', { class: 'openb-field openb-field--inline' });
-		f.appendChild(el('label', { class: 'openb-field__label', text: label }));
-		var i = el('input', { class: 'openb-input', type: 'text' });
-		i.value = value || '';
-		i.addEventListener('input', function () { onChange(i.value); });
-		f.appendChild(i);
-		return f;
+
+	/* ---- Visual control primitives ---- */
+
+	function iconGroupRow(label, value, options, onChange) {
+		var row = el('div', { class: 'openb-field openb-field--row' });
+		row.appendChild(el('label', { class: 'openb-field__label', text: label }));
+		var group = el('div', { class: 'openb-icongroup' });
+		options.forEach(function (opt) {
+			var btn = el('button', {
+				class: 'openb-icongroup__btn' + (String(value) === String(opt.val) ? ' is-active' : ''),
+				title: opt.title || opt.val,
+				html: opt.svg || '',
+				onclick: function () {
+					var next = (String(value) === String(opt.val)) ? '' : opt.val; // toggle off
+					value = next;
+					Array.prototype.forEach.call(group.children, function (c) { c.classList.remove('is-active'); });
+					if (next !== '') btn.classList.add('is-active');
+					onChange(next);
+				}
+			});
+			if (opt.text) btn.textContent = opt.text;
+			group.appendChild(btn);
+		});
+		row.appendChild(group);
+		return row;
 	}
-	function selectRow(label, value, choices, onChange) {
+
+	function parseUnit(value, fallbackUnit) {
+		value = (value == null) ? '' : String(value).trim();
+		if (value === '') return { num: '', unit: fallbackUnit || 'px' };
+		if (value === 'auto') return { num: '', unit: 'auto' };
+		var m = value.match(/^(-?\d*\.?\d+)\s*([a-z%]*)$/i);
+		if (!m) return { num: value, unit: fallbackUnit || 'px' };
+		return { num: m[1], unit: m[2] || (fallbackUnit || '') };
+	}
+
+	function unitSliderRow(label, value, opts, onChange) {
+		opts = opts || {};
+		var units = opts.units || ['px'];
+		var parsed = parseUnit(value, units[0]);
+		var row = el('div', { class: 'openb-field' });
+		row.appendChild(el('label', { class: 'openb-field__label', text: label }));
+		var line = el('div', { class: 'openb-unitline' });
+
+		var slider = el('input', { type: 'range', class: 'openb-slider', min: (opts.min != null ? opts.min : 0), max: (opts.max != null ? opts.max : 100), step: (opts.step || 1) });
+		var num = el('input', { type: 'number', class: 'openb-input openb-input--num', step: (opts.step || 1) });
+		var unitSel = null;
+
+		function unit() { return unitSel ? unitSel.value : (parsed.unit || ''); }
+		function emit() {
+			var n = num.value;
+			if (n === '' && unit() !== 'auto') { onChange(''); return; }
+			if (unit() === 'auto') { onChange('auto'); return; }
+			onChange(opts.plain ? String(n) : (n + unit()));
+		}
+		slider.value = (parsed.num === '' ? (opts.min || 0) : parsed.num);
+		num.value = parsed.num;
+		slider.addEventListener('input', function () { num.value = slider.value; emit(); });
+		num.addEventListener('input', function () { if (num.value !== '') slider.value = num.value; emit(); });
+		line.appendChild(slider);
+		line.appendChild(num);
+
+		if (!opts.plain && units.length > 1) {
+			unitSel = el('select', { class: 'openb-unitsel' });
+			units.forEach(function (u) {
+				var o = el('option', { value: u, text: u === '' ? '—' : u });
+				if (u === parsed.unit) o.selected = true;
+				unitSel.appendChild(o);
+			});
+			unitSel.addEventListener('change', function () {
+				num.disabled = (unitSel.value === 'auto');
+				emit();
+			});
+			num.disabled = (parsed.unit === 'auto');
+			line.appendChild(unitSel);
+		}
+		row.appendChild(line);
+		return row;
+	}
+
+	function linkedBoxRow(label, styleMap, prefix, setProp) {
+		var sides = ['top', 'right', 'bottom', 'left'];
+		var cur = sides.map(function (s) { return parseUnit(styleMap[prefix + '-' + s] || '', 'px'); });
+		var unit = (cur.find(function (c) { return c.unit && c.unit !== 'px'; }) || cur[0]).unit || 'px';
+		var linked = (cur[0].num !== '' && cur.every(function (c) { return c.num === cur[0].num; }));
+
+		var row = el('div', { class: 'openb-field' });
+		var head = el('div', { class: 'openb-boxhead' }, [
+			el('label', { class: 'openb-field__label', text: label }),
+			el('button', { class: 'openb-link' + (linked ? ' is-on' : ''), title: 'Link sides', html: STYLE_ICON.link })
+		]);
+		var linkBtn = head.children[1];
+		row.appendChild(head);
+
+		var grid = el('div', { class: 'openb-boxgrid' });
+		var inputs = {};
+		sides.forEach(function (s, i) {
+			var input = el('input', { type: 'number', class: 'openb-input openb-input--box', placeholder: s[0].toUpperCase() });
+			input.value = cur[i].num;
+			input.title = s;
+			input.addEventListener('input', function () {
+				if (linked) {
+					sides.forEach(function (s2) { inputs[s2].value = input.value; setProp(prefix + '-' + s2, input.value === '' ? '' : input.value + unitSel.value); });
+				} else {
+					setProp(prefix + '-' + s, input.value === '' ? '' : input.value + unitSel.value);
+				}
+			});
+			inputs[s] = input;
+			grid.appendChild(input);
+		});
+		var unitSel = el('select', { class: 'openb-unitsel openb-unitsel--box' });
+		['px', '%', 'em', 'rem'].forEach(function (u) { var o = el('option', { value: u, text: u }); if (u === unit) o.selected = true; unitSel.appendChild(o); });
+		unitSel.addEventListener('change', function () {
+			sides.forEach(function (s) { if (inputs[s].value !== '') setProp(prefix + '-' + s, inputs[s].value + unitSel.value); });
+		});
+		grid.appendChild(unitSel);
+		row.appendChild(grid);
+
+		linkBtn.addEventListener('click', function () {
+			linked = !linked;
+			linkBtn.classList.toggle('is-on', linked);
+			if (linked) {
+				var v = inputs.top.value;
+				sides.forEach(function (s) { inputs[s].value = v; setProp(prefix + '-' + s, v === '' ? '' : v + unitSel.value); });
+			}
+		});
+		return row;
+	}
+
+	function colorPopoverRow(label, value, onChange) {
+		var row = el('div', { class: 'openb-field openb-field--row' });
+		row.appendChild(el('label', { class: 'openb-field__label', text: label }));
+		row.appendChild(colorPopover(value, onChange));
+		return row;
+	}
+
+	function colorPopover(value, onChange) {
+		var wrap = el('div', { class: 'openb-colorpop' });
+		var swatch = el('button', { class: 'openb-colorpop__swatch', title: 'Choose color' });
+		function paintSwatch() { swatch.style.background = value || 'transparent'; swatch.classList.toggle('is-empty', !value); }
+		paintSwatch();
+		var pop = el('div', { class: 'openb-colorpop__panel', style: 'display:none' });
+		var native = el('input', { type: 'color' });
+		native.value = /^#([0-9a-f]{6})$/i.test(value || '') ? value : '#000000';
+		native.addEventListener('input', function () { value = native.value; paintSwatch(); onChange(value); });
+		var text = el('input', { class: 'openb-input', type: 'text', placeholder: '#hex / rgba / var(--ob-color-…)' });
+		text.value = value || '';
+		text.addEventListener('input', function () { value = text.value; paintSwatch(); onChange(value); });
+		var swatches = el('div', { class: 'openb-swatches' });
+		(state.globals.colors || []).forEach(function (c) {
+			swatches.appendChild(el('button', { class: 'openb-swatch', title: c.name, style: 'background:' + c.value, onclick: function () { value = 'var(--ob-color-' + c.id + ')'; text.value = value; paintSwatch(); onChange(value); } }));
+		});
+		var clear = el('button', { class: 'openb-btn openb-btn--block', text: 'Clear', onclick: function () { value = ''; text.value = ''; paintSwatch(); onChange(''); } });
+		pop.appendChild(native); pop.appendChild(text); pop.appendChild(swatches); pop.appendChild(clear);
+		swatch.addEventListener('click', function () { pop.style.display = pop.style.display === 'none' ? 'block' : 'none'; });
+		wrap.appendChild(swatch); wrap.appendChild(pop);
+		return wrap;
+	}
+
+	function borderBuilder(styleMap, setProp, get) {
+		var wrap = el('div', {});
+		wrap.appendChild(iconGroupRow('Style', get('border-style'), [
+			{ val: 'none', title: 'None', text: '∅' },
+			{ val: 'solid', title: 'Solid', svg: STYLE_ICON.borderSolid },
+			{ val: 'dashed', title: 'Dashed', svg: STYLE_ICON.borderDashed },
+			{ val: 'dotted', title: 'Dotted', svg: STYLE_ICON.borderDotted }
+		], function (v) { setProp('border-style', v); }));
+		wrap.appendChild(unitSliderRow('Width', get('border-width'), { min: 0, max: 30, units: ['px'] }, function (v) { setProp('border-width', v); }));
+		wrap.appendChild(colorPopoverRow('Color', get('border-color'), function (v) { setProp('border-color', v); }));
+		wrap.appendChild(unitSliderRow('Radius', get('border-radius'), { min: 0, max: 200, units: ['px', '%'] }, function (v) { setProp('border-radius', v); }));
+		return wrap;
+	}
+
+	function shadowBuilder(value, onChange) {
+		// Parse "x y blur spread color [inset]"
+		var inset = /inset/.test(value || '');
+		var rest = (value || '').replace('inset', '').trim();
+		var colorMatch = rest.match(/(#[0-9a-f]+|rgba?\([^)]+\)|var\([^)]+\))/i);
+		var color = colorMatch ? colorMatch[0] : 'rgba(0,0,0,0.15)';
+		var nums = rest.replace(color, '').trim().split(/\s+/).map(function (n) { return parseInt(n, 10) || 0; });
+		var st = { x: nums[0] || 0, y: nums[1] || 0, blur: nums[2] || 0, spread: nums[3] || 0, color: color, inset: inset };
+
+		function emit() {
+			if (st.x === 0 && st.y === 0 && st.blur === 0 && st.spread === 0) { onChange(''); return; }
+			onChange((st.inset ? 'inset ' : '') + st.x + 'px ' + st.y + 'px ' + st.blur + 'px ' + st.spread + 'px ' + st.color);
+		}
+		var wrap = el('div', {});
+		function numRow(lbl, key, min, max) {
+			return unitSliderRow(lbl, st[key] + 'px', { min: min, max: max, units: ['px'] }, function (v) { st[key] = parseInt(v, 10) || 0; emit(); });
+		}
+		wrap.appendChild(numRow('Offset X', 'x', -50, 50));
+		wrap.appendChild(numRow('Offset Y', 'y', -50, 50));
+		wrap.appendChild(numRow('Blur', 'blur', 0, 100));
+		wrap.appendChild(numRow('Spread', 'spread', -50, 50));
+		wrap.appendChild(colorPopoverRow('Color', st.color, function (v) { st.color = v || 'rgba(0,0,0,0.15)'; emit(); }));
+		var insetRow = el('div', { class: 'openb-field openb-field--row' }, [el('label', { class: 'openb-field__label', text: 'Inset' })]);
+		var sw = el('label', { class: 'openb-switch' });
+		var cb = el('input', { type: 'checkbox' }); cb.checked = st.inset;
+		cb.addEventListener('change', function () { st.inset = cb.checked; emit(); });
+		sw.appendChild(cb); sw.appendChild(el('span', { class: 'openb-switch__slider' }));
+		insetRow.appendChild(sw);
+		wrap.appendChild(insetRow);
+		return wrap;
+	}
+
+	function backgroundBuilder(node, bp) {
+		var bg = node.settings.background[bp];
+		function commit() { markDirty(); rerender(); }
+		var wrap = el('div', {});
+		wrap.appendChild(iconGroupRow('Type', bg.type || 'none', [
+			{ val: 'none', title: 'None', text: '∅' },
+			{ val: 'color', title: 'Color', svg: STYLE_ICON.bgColor },
+			{ val: 'image', title: 'Image', svg: STYLE_ICON.bgImage },
+			{ val: 'gradient', title: 'Gradient', svg: STYLE_ICON.bgGradient }
+		], function (v) { bg.type = v || 'none'; commit(); renderInspector(); }));
+
+		if (bg.type === 'color') {
+			wrap.appendChild(colorPopoverRow('Color', bg.color || '', function (v) { bg.color = v; commit(); }));
+		} else if (bg.type === 'image') {
+			var img = bg.image || { id: 0, url: '' };
+			var prev = el('div', { class: 'openb-imagectrl__preview' });
+			function paint() { prev.innerHTML = img.url ? '<img src="' + escapeAttr(img.url) + '" alt="">' : '<span>No image</span>'; }
+			paint();
+			wrap.appendChild(prev);
+			wrap.appendChild(el('button', { class: 'openb-btn openb-btn--block', text: 'Select Image', onclick: function () { openMedia(function (a) { img = { id: a.id, url: a.url }; bg.image = img; paint(); commit(); }); } }));
+			wrap.appendChild(selectField('Size', bg.size || 'cover', { cover: 'Cover', contain: 'Contain', auto: 'Auto' }, function (v) { bg.size = v; commit(); }));
+			wrap.appendChild(selectField('Position', bg.position || 'center center', {
+				'center center': 'Center', 'top left': 'Top Left', 'top center': 'Top', 'top right': 'Top Right',
+				'center left': 'Left', 'center right': 'Right', 'bottom left': 'Bottom Left', 'bottom center': 'Bottom', 'bottom right': 'Bottom Right'
+			}, function (v) { bg.position = v; commit(); }));
+			wrap.appendChild(selectField('Repeat', bg.repeat || 'no-repeat', { 'no-repeat': 'No repeat', 'repeat': 'Repeat', 'repeat-x': 'Repeat X', 'repeat-y': 'Repeat Y' }, function (v) { bg.repeat = v; commit(); }));
+			wrap.appendChild(colorPopoverRow('Overlay/BG Color', bg.color || '', function (v) { bg.color = v; commit(); }));
+		} else if (bg.type === 'gradient') {
+			wrap.appendChild(colorPopoverRow('From', bg.from || '#2563eb', function (v) { bg.from = v; commit(); }));
+			wrap.appendChild(colorPopoverRow('To', bg.to || '#7c3aed', function (v) { bg.to = v; commit(); }));
+			wrap.appendChild(unitSliderRow('Angle', (bg.angle != null ? bg.angle : 135) + '', { min: 0, max: 360, units: [''], plain: true }, function (v) { bg.angle = parseInt(v, 10) || 0; commit(); }));
+		}
+		return wrap;
+	}
+
+	function selectField(label, value, choices, onChange) {
 		return controlField({ type: 'select', label: label, choices: choices }, value, onChange);
 	}
 

@@ -4,7 +4,7 @@ Tags: page builder, visual builder, drag and drop, editor, landing page
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.2.0
+Stable tag: 1.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -57,6 +57,11 @@ As a sanitized JSON tree in post meta (`_openb_tree`), with compiled CSS cached
 in `_openb_compiled_css`.
 
 == Changelog ==
+
+= 1.3.0 =
+* Visual style controls replacing raw text inputs: icon button-groups, slider + unit pickers, linked 4-side padding/margin box (with link toggle), color popover (native picker + brand swatches), border builder, and box-shadow builder.
+* Alignment controls — horizontal (Text Align) for all elements, plus flexbox Direction, Justify (main axis) and Align (cross axis) for containers (vertical + horizontal).
+* Background builder: Color, Image (size/position/repeat + overlay color) and Gradient (from/to/angle), per breakpoint. Background image URLs are emitted through a controlled, escaped url().
 
 = 1.2.0 =
 * 12 new widgets: Video (privacy-friendly YouTube/Vimeo facade + self-hosted), Gallery, Icon Box, Icon List, Star Rating, Testimonial, Accordion, Tabs, Counter, Progress Bar, Social Icons, Google Map (keyless embed).

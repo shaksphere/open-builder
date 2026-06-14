@@ -94,10 +94,66 @@ class Security {
 		];
 
 		return [
-			'content'  => $content,
-			'style'    => $style,
-			'advanced' => $advanced,
+			'content'    => $content,
+			'style'      => $style,
+			'background' => self::sanitize_background( $settings['background'] ?? [] ),
+			'advanced'   => $advanced,
 		];
+	}
+
+	/**
+	 * Sanitize per-breakpoint background settings. Kept separate from the free
+	 * style map because background-image needs a controlled url() (which the
+	 * general CSS-value sanitizer deliberately rejects).
+	 */
+	public static function sanitize_background( $bg ): array {
+		if ( ! is_array( $bg ) ) {
+			return [];
+		}
+		$out         = [];
+		$breakpoints = [ 'desktop', 'tablet', 'mobile' ];
+		$positions   = [ 'center center', 'top left', 'top center', 'top right', 'center left', 'center right', 'bottom left', 'bottom center', 'bottom right' ];
+		$sizes       = [ 'cover', 'contain', 'auto' ];
+		$repeats     = [ 'no-repeat', 'repeat', 'repeat-x', 'repeat-y' ];
+		$types       = [ 'none', 'color', 'image', 'gradient' ];
+
+		foreach ( $breakpoints as $bp ) {
+			if ( empty( $bg[ $bp ] ) || ! is_array( $bg[ $bp ] ) ) {
+				continue;
+			}
+			$in       = $bg[ $bp ];
+			$type_in  = (string) ( $in['type'] ?? 'none' );
+			$type     = in_array( $type_in, $types, true ) ? $type_in : 'none';
+			if ( 'none' === $type ) {
+				continue;
+			}
+			$clean = [ 'type' => $type ];
+
+			if ( 'color' === $type ) {
+				$clean['color'] = self::sanitize_color( (string) ( $in['color'] ?? '' ) );
+			} elseif ( 'image' === $type ) {
+				$img = $in['image'] ?? [];
+				$clean['image'] = [
+					'id'  => isset( $img['id'] ) ? absint( $img['id'] ) : 0,
+					'url' => isset( $img['url'] ) ? esc_url_raw( (string) $img['url'] ) : '',
+				];
+				$position = (string) ( $in['position'] ?? 'center center' );
+				$size     = (string) ( $in['size'] ?? 'cover' );
+				$repeat   = (string) ( $in['repeat'] ?? 'no-repeat' );
+				$clean['position'] = in_array( $position, $positions, true ) ? $position : 'center center';
+				$clean['size']     = in_array( $size, $sizes, true ) ? $size : 'cover';
+				$clean['repeat']   = in_array( $repeat, $repeats, true ) ? $repeat : 'no-repeat';
+				$clean['color']    = self::sanitize_color( (string) ( $in['color'] ?? '' ) ); // overlay/fallback
+			} elseif ( 'gradient' === $type ) {
+				$clean['from']  = self::sanitize_color( (string) ( $in['from'] ?? '' ) );
+				$clean['to']    = self::sanitize_color( (string) ( $in['to'] ?? '' ) );
+				$clean['angle'] = isset( $in['angle'] ) ? max( 0, min( 360, (int) $in['angle'] ) ) : 135;
+			}
+
+			$out[ $bp ] = $clean;
+		}
+
+		return $out;
 	}
 
 	/** Sanitize one content control value by its control type. */

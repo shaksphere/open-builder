@@ -163,6 +163,40 @@ textarea.openb-input { resize: vertical; }
 
 .openb-svg { display: inline-flex; }
 
+/* ---- Visual style controls ---- */
+.openb-field--row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.openb-field--row .openb-field__label { margin-bottom: 0; flex: 0 0 auto; }
+
+/* Icon button group (alignment, direction, etc.) */
+.openb-icongroup { display: inline-flex; border: 1px solid var(--ob-border); border-radius: 7px; overflow: hidden; background: #fff; }
+.openb-icongroup__btn { border: none; background: #fff; padding: 0; width: 32px; height: 30px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: #6b7280; border-right: 1px solid var(--ob-border); font-size: 12px; font-weight: 600; }
+.openb-icongroup__btn:last-child { border-right: none; }
+.openb-icongroup__btn:hover { background: #f1f2f5; color: var(--ob-text); }
+.openb-icongroup__btn.is-active { background: var(--ob-primary); color: #fff; }
+
+/* Slider + number + unit */
+.openb-unitline { display: flex; align-items: center; gap: 8px; }
+.openb-slider { flex: 1; -webkit-appearance: none; appearance: none; height: 4px; border-radius: 4px; background: #e4e6eb; outline: none; }
+.openb-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 15px; height: 15px; border-radius: 50%; background: var(--ob-primary); cursor: pointer; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+.openb-slider::-moz-range-thumb { width: 15px; height: 15px; border-radius: 50%; background: var(--ob-primary); cursor: pointer; border: 2px solid #fff; }
+.openb-input--num { width: 60px; flex: 0 0 auto; padding: 6px; text-align: center; }
+.openb-unitsel { flex: 0 0 auto; border: 1px solid var(--ob-border); border-radius: 6px; padding: 6px 4px; font-size: 12px; background: #fff; color: var(--ob-text); }
+
+/* Linked box (padding/margin) */
+.openb-boxhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.openb-link { width: 26px; height: 24px; border: 1px solid var(--ob-border); background: #fff; border-radius: 6px; cursor: pointer; color: #9ca3af; display: inline-flex; align-items: center; justify-content: center; }
+.openb-link.is-on { background: var(--ob-primary); color: #fff; border-color: var(--ob-primary); }
+.openb-boxgrid { display: grid; grid-template-columns: repeat(4, 1fr) auto; gap: 6px; }
+.openb-input--box { width: 100%; padding: 6px 4px; text-align: center; }
+.openb-unitsel--box { padding: 6px 2px; }
+
+/* Color popover */
+.openb-colorpop { position: relative; }
+.openb-colorpop__swatch { width: 36px; height: 28px; border-radius: 6px; border: 1px solid var(--ob-border); cursor: pointer; background-clip: padding-box; }
+.openb-colorpop__swatch.is-empty { background-image: linear-gradient(45deg, #eee 25%, transparent 25%, transparent 75%, #eee 75%), linear-gradient(45deg, #eee 25%, #fff 25%, #fff 75%, #eee 75%); background-size: 10px 10px; background-position: 0 0, 5px 5px; }
+.openb-colorpop__panel { position: absolute; right: 0; top: 34px; z-index: 20; background: #fff; border: 1px solid var(--ob-border); border-radius: 8px; padding: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.14); width: 220px; display: flex; flex-direction: column; gap: 8px; }
+.openb-colorpop__panel input[type="color"] { width: 100%; height: 32px; border: none; background: none; cursor: pointer; padding: 0; }
+
 /* In-canvas editing affordances (applied inside the iframe document via classes
    that we also ship in frontend... but the iframe loads frontend.css only, so
    we inject these through the dynamic style below). */

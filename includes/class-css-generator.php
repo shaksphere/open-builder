@@ -63,6 +63,12 @@ class Css_Generator {
 			$tablet .= $this->rules( $selector, $style['tablet'] ?? [] );
 			$mobile .= $this->rules( $selector, $style['mobile'] ?? [] );
 
+			// Background (separate from the style map so url() can be controlled).
+			$bg = $settings['background'] ?? [];
+			$base   .= $this->rules( $selector, $this->background_declarations( $bg['desktop'] ?? [] ) );
+			$tablet .= $this->rules( $selector, $this->background_declarations( $bg['tablet'] ?? [] ) );
+			$mobile .= $this->rules( $selector, $this->background_declarations( $bg['mobile'] ?? [] ) );
+
 			// Scoped custom CSS: replace `selector` token with the node selector.
 			$custom = $settings['advanced']['custom_css'] ?? '';
 			if ( '' !== $custom ) {
@@ -85,6 +91,46 @@ class Css_Generator {
 			$out .= sprintf( '%s:%s;', $prop, $val );
 		}
 		return '' !== $out ? sprintf( '%s{%s}', $selector, $out ) : '';
+	}
+
+	/**
+	 * Build CSS declarations for a sanitized background config. The image URL is
+	 * the only place we emit url(), and it comes from esc_url_raw at save time.
+	 */
+	private function background_declarations( $bg ): array {
+		if ( empty( $bg ) || ! is_array( $bg ) || empty( $bg['type'] ) ) {
+			return [];
+		}
+		$decls = [];
+		switch ( $bg['type'] ) {
+			case 'color':
+				if ( ! empty( $bg['color'] ) ) {
+					$decls['background-color'] = $bg['color'];
+				}
+				break;
+			case 'image':
+				$url = isset( $bg['image']['url'] ) ? (string) $bg['image']['url'] : '';
+				if ( '' !== $url ) {
+					// esc_url for CSS context; wrap in quotes to be safe.
+					$decls['background-image']    = "url('" . esc_url( $url ) . "')";
+					$decls['background-size']     = $bg['size'] ?? 'cover';
+					$decls['background-position'] = $bg['position'] ?? 'center center';
+					$decls['background-repeat']   = $bg['repeat'] ?? 'no-repeat';
+				}
+				if ( ! empty( $bg['color'] ) ) {
+					$decls['background-color'] = $bg['color'];
+				}
+				break;
+			case 'gradient':
+				$from  = $bg['from'] ?? '';
+				$to    = $bg['to'] ?? '';
+				$angle = isset( $bg['angle'] ) ? (int) $bg['angle'] : 135;
+				if ( '' !== $from && '' !== $to ) {
+					$decls['background-image'] = sprintf( 'linear-gradient(%ddeg,%s,%s)', $angle, $from, $to );
+				}
+				break;
+		}
+		return $decls;
 	}
 
 	/** Built-in layout behaviour that isn't expressed through style controls. */
