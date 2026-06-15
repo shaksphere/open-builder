@@ -160,6 +160,9 @@ class Editor {
 		.openb-drop-before{box-shadow:inset 0 3px 0 0 #2563eb;}
 		.openb-drop-after{box-shadow:inset 0 -3px 0 0 #2563eb;}
 		.openb-drop-inside{outline:2px dashed #2563eb !important;background:rgba(37,99,235,.04);}
+		.openb-inline-editable{cursor:text;}
+		.openb-editing{outline:2px solid #2563eb !important;outline-offset:2px;cursor:text;background:rgba(37,99,235,.03);border-radius:2px;}
+		[contenteditable="true"]{min-width:8px;}
 		body.openb-preview-body{margin:0;}
 		.ob-empty-dropzone{display:flex;align-items:center;justify-content:center;min-height:80px;width:100%;border:2px dashed #cbd5e1;border-radius:8px;color:#94a3b8;font-family:system-ui,sans-serif;font-size:13px;background:rgba(148,163,184,.05);}
 	</style>

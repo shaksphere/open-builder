@@ -144,13 +144,20 @@ textarea.openb-input { resize: vertical; }
 .openb-stylegroup__title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #374151; margin-bottom: 10px; }
 
 /* Layers */
-.openb-layer { display: flex; align-items: center; gap: 8px; padding: 7px 8px; font-size: 13px; cursor: pointer; border-radius: 5px; }
+.openb-layer { display: flex; align-items: center; gap: 6px; padding: 7px 8px; font-size: 13px; cursor: grab; border-radius: 5px; position: relative; }
 .openb-layer:hover { background: #f1f2f5; }
 .openb-layer.is-selected { background: rgba(37,99,235,.1); color: var(--ob-primary); }
-.openb-layer__icon { display: flex; color: var(--ob-muted); }
+.openb-layer__caret { width: 14px; flex: 0 0 auto; text-align: center; color: var(--ob-muted); font-size: 10px; cursor: pointer; user-select: none; }
+.openb-layer__caret.is-empty { cursor: default; }
+.openb-layer__icon { display: flex; color: var(--ob-muted); flex: 0 0 auto; }
 .openb-layer__name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .openb-layer__acts { display: none; gap: 2px; }
 .openb-layer:hover .openb-layer__acts { display: flex; }
+/* Drag-to-reorder indicators */
+.openb-layer.layer-before::before, .openb-layer.layer-after::after { content: ""; position: absolute; left: 6px; right: 6px; height: 2px; background: var(--ob-primary); border-radius: 2px; }
+.openb-layer.layer-before::before { top: -1px; }
+.openb-layer.layer-after::after { bottom: -1px; }
+.openb-layer.layer-inside { box-shadow: inset 0 0 0 2px var(--ob-primary); background: rgba(37,99,235,.06); }
 
 /* Toast */
 .openb-toast {

@@ -4,7 +4,7 @@ Tags: page builder, visual builder, drag and drop, editor, landing page
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.5.0
+Stable tag: 1.6.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -57,6 +57,11 @@ As a sanitized JSON tree in post meta (`_openb_tree`), with compiled CSS cached
 in `_openb_compiled_css`.
 
 == Changelog ==
+
+= 1.6.0 =
+* Layers tree: drag-to-reorder and re-nest elements (drop before/after/inside containers), plus expand/collapse toggles.
+* Inline editing: double-click a Heading, Text, Button or Icon Box title on the canvas to edit its text in place; Enter or click-away commits, Esc cancels.
+* Links no longer navigate inside the editor canvas.
 
 = 1.5.0 =
 * Performance: compiled CSS is now written to real, cacheable stylesheet files in uploads/open-builder/ (a site-wide global.css for brand variables + a per-page page-{id}.css) instead of an inline <style> on every request.

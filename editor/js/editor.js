@@ -41,6 +41,16 @@
 		bgGradient: _svg('<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 17l18-9" opacity=".5"/>')
 	};
 
+	/* Widgets that support inline (double-click) text editing on the canvas.
+	   sel = element inside the node wrapper to edit; field = content key;
+	   html = whether to store innerHTML (rich) or plain text. */
+	var INLINE_EDIT = {
+		heading:  { sel: '.ob-heading__text', field: 'text', html: false },
+		text:     { sel: '.ob-text__content', field: 'text', html: true },
+		button:   { sel: '.ob-button', field: 'text', html: false },
+		icon_box: { sel: '.ob-iconbox__title', field: 'title', html: false }
+	};
+
 	/* ----------------------------------------------------------------------- *
 	 * State
 	 * ----------------------------------------------------------------------- */
@@ -51,6 +61,7 @@
 		title: BOOT.postTitle || '',
 		clipboard: loadClipboard(),
 		selectedId: null,
+		collapsed: {}, // layer ids collapsed in the tree
 		device: 'desktop',
 		dirty: false,
 		history: [],
@@ -234,6 +245,10 @@
 			n.addEventListener('drop', onCanvasDrop);
 			n.addEventListener('dragleave', onCanvasDragLeave);
 			n.addEventListener('contextmenu', onCanvasContextMenu);
+			if (INLINE_EDIT[n.getAttribute('data-ob-type')]) {
+				n.classList.add('openb-inline-editable');
+				n.addEventListener('dblclick', onCanvasInlineEdit);
+			}
 		});
 		// Root-level drop when empty or dropping at the end. The #openb-canvas
 		// container persists across re-renders, so attach its listeners once.
@@ -242,10 +257,17 @@
 			container.dataset.obBound = '1';
 			container.addEventListener('dragover', onRootDragOver);
 			container.addEventListener('drop', onRootDrop);
+			// Links must never navigate inside the editor canvas.
+			doc.addEventListener('click', function (e) {
+				var a = e.target.closest && e.target.closest('a');
+				if (a) e.preventDefault();
+			}, true);
 		}
 	}
 
 	function onCanvasClick(e) {
+		// While inline-editing this node, let clicks position the caret normally.
+		if (inlineEditing && this.getAttribute('data-ob-id') === inlineEditing.id) return;
 		e.stopPropagation();
 		e.preventDefault();
 		var id = this.getAttribute('data-ob-id');
@@ -261,6 +283,78 @@
 		var frame = document.getElementById('openb-canvas-frame');
 		var rect = frame ? frame.getBoundingClientRect() : { left: 0, top: 0 };
 		showContextMenu(rect.left + e.clientX, rect.top + e.clientY, nodeMenuItems(id));
+	}
+
+	var inlineEditing = null; // { id, target, cfg }
+	function onCanvasInlineEdit(e) {
+		e.preventDefault();
+		e.stopPropagation();
+		var id = this.getAttribute('data-ob-id');
+		var type = this.getAttribute('data-ob-type');
+		var cfg = INLINE_EDIT[type];
+		if (!cfg) return;
+		var target = this.querySelector(cfg.sel) || this;
+		startInlineEdit(id, target, cfg);
+	}
+
+	function startInlineEdit(id, target, cfg) {
+		finishInlineEdit(); // commit any previous
+		selectNode(id);
+		target.setAttribute('contenteditable', 'true');
+		target.classList.add('openb-editing');
+		target.focus();
+		// Select all text for quick replace.
+		var doc = canvasDoc();
+		try {
+			var range = doc.createRange();
+			range.selectNodeContents(target);
+			var sel = doc.defaultView.getSelection();
+			sel.removeAllRanges();
+			sel.addRange(range);
+		} catch (err) {}
+		inlineEditing = { id: id, target: target, cfg: cfg };
+
+		target.addEventListener('blur', finishInlineEdit);
+		target.addEventListener('keydown', inlineKeydown);
+	}
+
+	function inlineKeydown(e) {
+		// Enter commits for single-line (plain text) fields; Shift+Enter allows
+		// newlines in rich text. Esc cancels.
+		if (e.key === 'Enter' && inlineEditing && !inlineEditing.cfg.html && !e.shiftKey) {
+			e.preventDefault();
+			finishInlineEdit();
+		} else if (e.key === 'Escape') {
+			e.preventDefault();
+			if (inlineEditing) inlineEditing.cancelled = true;
+			finishInlineEdit();
+		}
+	}
+
+	function finishInlineEdit() {
+		if (!inlineEditing) return;
+		var ie = inlineEditing;
+		inlineEditing = null;
+		var target = ie.target;
+		target.removeEventListener('blur', finishInlineEdit);
+		target.removeEventListener('keydown', inlineKeydown);
+		target.removeAttribute('contenteditable');
+		target.classList.remove('openb-editing');
+
+		if (!ie.cancelled) {
+			var hit = findNode(ie.id);
+			if (hit) {
+				var value = ie.cfg.html ? target.innerHTML : (target.innerText || '').replace(/\s+$/, '');
+				hit.node.settings.content = hit.node.settings.content || {};
+				if (hit.node.settings.content[ie.cfg.field] !== value) {
+					hit.node.settings.content[ie.cfg.field] = value;
+					markDirty();
+					renderInspector();
+				}
+			}
+		}
+		// Re-render so the canvas reflects the committed (and sanitized) value.
+		renderCanvas();
 	}
 
 	function onCanvasDragOver(e) {
@@ -1124,12 +1218,29 @@
 		var ul = el('div', { class: 'openb-layers' });
 		nodes.forEach(function (n) {
 			var def = WIDGETS[n.type] || { title: n.type, icon: '' };
+			var isContainer = WIDGETS[n.type] && WIDGETS[n.type].isContainer;
+			var hasKids = n.children && n.children.length;
+			var collapsed = !!state.collapsed[n.id];
+
+			var caret = el('span', { class: 'openb-layer__caret' + (hasKids ? '' : ' is-empty') });
+			if (hasKids) {
+				caret.innerHTML = collapsed ? '▸' : '▾';
+				caret.addEventListener('click', function (e) {
+					e.stopPropagation();
+					if (state.collapsed[n.id]) delete state.collapsed[n.id]; else state.collapsed[n.id] = true;
+					renderLayers();
+				});
+			}
+
 			var row = el('div', {
 				class: 'openb-layer' + (n.id === state.selectedId ? ' is-selected' : ''),
-				style: 'padding-left:' + (8 + depth * 14) + 'px',
+				draggable: 'true',
+				'data-layer-id': n.id,
+				style: 'padding-left:' + (6 + depth * 14) + 'px',
 				onclick: function (e) { e.stopPropagation(); selectNode(n.id); },
 				oncontextmenu: function (e) { e.preventDefault(); e.stopPropagation(); selectNode(n.id); showContextMenu(e.clientX, e.clientY, nodeMenuItems(n.id)); }
 			}, [
+				caret,
 				el('span', { class: 'openb-layer__icon', html: widgetIcon(def.icon) }),
 				el('span', { class: 'openb-layer__name', text: def.title }),
 				el('span', { class: 'openb-layer__acts' }, [
@@ -1137,8 +1248,43 @@
 					el('button', { class: 'openb-iconbtn', title: 'Delete', text: '×', onclick: function (e) { e.stopPropagation(); deleteNode(n.id); } })
 				])
 			]);
+
+			// Drag-to-reorder / nest within the tree.
+			row.addEventListener('dragstart', function (e) {
+				state.drag = { mode: 'move', id: n.id };
+				e.dataTransfer.effectAllowed = 'move';
+				e.dataTransfer.setData('text/plain', n.id);
+				e.stopPropagation();
+			});
+			row.addEventListener('dragover', function (e) {
+				if (!state.drag || state.drag.mode !== 'move') return;
+				e.preventDefault();
+				e.stopPropagation();
+				row.classList.remove('layer-before', 'layer-after', 'layer-inside');
+				var r = row.getBoundingClientRect();
+				var ratio = (e.clientY - r.top) / r.height;
+				if (isContainer && ratio > 0.3 && ratio < 0.7) row.classList.add('layer-inside');
+				else if (ratio < 0.5) row.classList.add('layer-before');
+				else row.classList.add('layer-after');
+			});
+			row.addEventListener('dragleave', function () { row.classList.remove('layer-before', 'layer-after', 'layer-inside'); });
+			row.addEventListener('drop', function (e) {
+				if (!state.drag || state.drag.mode !== 'move') return;
+				e.preventDefault();
+				e.stopPropagation();
+				var pos = row.classList.contains('layer-inside') ? 'inside' : (row.classList.contains('layer-before') ? 'before' : 'after');
+				row.classList.remove('layer-before', 'layer-after', 'layer-inside');
+				var dragId = state.drag.id;
+				state.drag = null;
+				if (dragId === n.id) return;
+				pushHistory();
+				moveNode(dragId, n.id, pos);
+				if (pos === 'inside') delete state.collapsed[n.id];
+				markDirty(); renderCanvas(); renderLayers();
+			});
+
 			ul.appendChild(row);
-			if (n.children && n.children.length) ul.appendChild(buildLayerList(n.children, depth + 1));
+			if (hasKids && !collapsed) ul.appendChild(buildLayerList(n.children, depth + 1));
 		});
 		return ul;
 	}
