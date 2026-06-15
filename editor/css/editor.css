@@ -197,12 +197,14 @@ textarea.openb-input { resize: vertical; }
 .openb-input--box { width: 100%; padding: 6px 4px; text-align: center; }
 .openb-unitsel--box { padding: 6px 2px; }
 
-/* Color popover */
+/* Color popover (inline-expanding, never clipped by the inspector scroll) */
 .openb-colorpop { position: relative; }
-.openb-colorpop__swatch { width: 36px; height: 28px; border-radius: 6px; border: 1px solid var(--ob-border); cursor: pointer; background-clip: padding-box; }
-.openb-colorpop__swatch.is-empty { background-image: linear-gradient(45deg, #eee 25%, transparent 25%, transparent 75%, #eee 75%), linear-gradient(45deg, #eee 25%, #fff 25%, #fff 75%, #eee 75%); background-size: 10px 10px; background-position: 0 0, 5px 5px; }
-.openb-colorpop__panel { position: absolute; right: 0; top: 34px; z-index: 20; background: #fff; border: 1px solid var(--ob-border); border-radius: 8px; padding: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.14); width: 220px; display: flex; flex-direction: column; gap: 8px; }
-.openb-colorpop__panel input[type="color"] { width: 100%; height: 32px; border: none; background: none; cursor: pointer; padding: 0; }
+.openb-colorpop__swatch { width: 100%; height: 30px; border-radius: 6px; border: 1px solid var(--ob-border); cursor: pointer; background-clip: padding-box; display: flex; align-items: center; padding: 0 8px; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.4); font-size: 12px; }
+.openb-colorpop__value { mix-blend-mode: difference; color: #fff; pointer-events: none; }
+.openb-colorpop__swatch.is-empty { color: var(--ob-muted); text-shadow: none; background-image: linear-gradient(45deg, #eee 25%, transparent 25%, transparent 75%, #eee 75%), linear-gradient(45deg, #eee 25%, #fff 25%, #fff 75%, #eee 75%); background-size: 12px 12px; background-position: 0 0, 6px 6px; }
+.openb-colorpop__swatch.is-empty .openb-colorpop__value { mix-blend-mode: normal; }
+.openb-colorpop__panel { margin-top: 8px; background: #fff; border: 1px solid var(--ob-border); border-radius: 8px; padding: 10px; flex-direction: column; gap: 8px; }
+.openb-colorpop__native { width: 100%; height: 34px; border: 1px solid var(--ob-border); border-radius: 6px; background: none; cursor: pointer; padding: 2px; }
 
 /* Context menu */
 .openb-ctxmenu { position: fixed; z-index: 200; background: #fff; border: 1px solid var(--ob-border); border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,.18); padding: 5px; min-width: 168px; }

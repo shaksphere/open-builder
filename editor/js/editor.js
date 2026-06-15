@@ -1075,31 +1075,44 @@
 	}
 
 	function colorPopoverRow(label, value, onChange) {
-		var row = el('div', { class: 'openb-field openb-field--row' });
-		row.appendChild(el('label', { class: 'openb-field__label', text: label }));
+		// Stacked (label above the control) so the inline panel can use full width
+		// and is never clipped by the inspector's scroll container.
+		var row = el('div', { class: 'openb-field' });
+		if (label) row.appendChild(el('label', { class: 'openb-field__label', text: label }));
 		row.appendChild(colorPopover(value, onChange));
 		return row;
 	}
 
 	function colorPopover(value, onChange) {
 		var wrap = el('div', { class: 'openb-colorpop' });
+
+		// Full-width swatch bar showing the current value; click to expand.
 		var swatch = el('button', { class: 'openb-colorpop__swatch', title: 'Choose color' });
-		function paintSwatch() { swatch.style.background = value || 'transparent'; swatch.classList.toggle('is-empty', !value); }
-		paintSwatch();
+		var label = el('span', { class: 'openb-colorpop__value' });
+		function paint() {
+			swatch.style.background = value || '';
+			swatch.classList.toggle('is-empty', !value);
+			label.textContent = value || 'No color';
+		}
+		swatch.appendChild(label);
+
+		// Panel expands INLINE (extends scroll height) instead of overlaying.
 		var pop = el('div', { class: 'openb-colorpop__panel', style: 'display:none' });
-		var native = el('input', { type: 'color' });
+		var native = el('input', { type: 'color', class: 'openb-colorpop__native' });
 		native.value = /^#([0-9a-f]{6})$/i.test(value || '') ? value : '#000000';
-		native.addEventListener('input', function () { value = native.value; paintSwatch(); onChange(value); });
+		native.addEventListener('input', function () { value = native.value; paint(); onChange(value); });
 		var text = el('input', { class: 'openb-input', type: 'text', placeholder: '#hex / rgba / var(--ob-color-…)' });
 		text.value = value || '';
-		text.addEventListener('input', function () { value = text.value; paintSwatch(); onChange(value); });
+		text.addEventListener('input', function () { value = text.value; paint(); onChange(value); });
 		var swatches = el('div', { class: 'openb-swatches' });
 		(state.globals.colors || []).forEach(function (c) {
-			swatches.appendChild(el('button', { class: 'openb-swatch', title: c.name, style: 'background:' + c.value, onclick: function () { value = 'var(--ob-color-' + c.id + ')'; text.value = value; paintSwatch(); onChange(value); } }));
+			swatches.appendChild(el('button', { class: 'openb-swatch', title: c.name, style: 'background:' + c.value, onclick: function () { value = 'var(--ob-color-' + c.id + ')'; text.value = value; if (/^#([0-9a-f]{6})$/i.test(c.value)) native.value = c.value; paint(); onChange(value); } }));
 		});
-		var clear = el('button', { class: 'openb-btn openb-btn--block', text: 'Clear', onclick: function () { value = ''; text.value = ''; paintSwatch(); onChange(''); } });
+		var clear = el('button', { class: 'openb-btn openb-btn--block', text: 'Clear', onclick: function () { value = ''; text.value = ''; paint(); onChange(''); } });
 		pop.appendChild(native); pop.appendChild(text); pop.appendChild(swatches); pop.appendChild(clear);
-		swatch.addEventListener('click', function () { pop.style.display = pop.style.display === 'none' ? 'block' : 'none'; });
+
+		swatch.addEventListener('click', function () { pop.style.display = pop.style.display === 'none' ? 'flex' : 'none'; });
+		paint();
 		wrap.appendChild(swatch); wrap.appendChild(pop);
 		return wrap;
 	}

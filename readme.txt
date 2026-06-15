@@ -4,7 +4,7 @@ Tags: page builder, visual builder, drag and drop, editor, landing page
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.6.0
+Stable tag: 1.6.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -57,6 +57,9 @@ As a sanitized JSON tree in post meta (`_openb_tree`), with compiled CSS cached
 in `_openb_compiled_css`.
 
 == Changelog ==
+
+= 1.6.1 =
+* Fix: the color popover (Background, Text Color, Border, Shadow, Page Background) was clipped by the inspector's scroll container and could be unreachable, so a background color couldn't be picked or applied. The picker now expands inline as a full-width panel.
 
 = 1.6.0 =
 * Layers tree: drag-to-reorder and re-nest elements (drop before/after/inside containers), plus expand/collapse toggles.
