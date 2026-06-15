@@ -15,6 +15,18 @@ class Admin {
 		add_action( 'add_meta_boxes', [ $this, 'meta_box' ] );
 		add_filter( 'page_row_actions', [ $this, 'row_action' ], 10, 2 );
 		add_filter( 'post_row_actions', [ $this, 'row_action' ], 10, 2 );
+		add_action( 'admin_post_openb_flush_css', [ $this, 'handle_flush_css' ] );
+	}
+
+	/** Flush all cached CSS files; they lazily rebuild on next visit/save. */
+	public function handle_flush_css(): void {
+		if ( ! current_user_can( 'edit_pages' ) || ! check_admin_referer( 'openb_flush_css' ) ) {
+			wp_die( esc_html__( 'Not allowed.', 'open-builder' ), 403 );
+		}
+		Plugin::instance()->css_store->flush_all();
+		Plugin::instance()->css_store->rebuild_global();
+		wp_safe_redirect( add_query_arg( 'openb_flushed', '1', admin_url( 'admin.php?page=open-builder' ) ) );
+		exit;
 	}
 
 	public function menu(): void {
@@ -50,6 +62,10 @@ class Admin {
 		echo '<div class="wrap">';
 		echo '<h1>' . esc_html__( 'Open Builder', 'open-builder' ) . '</h1>';
 		echo '<p>' . esc_html__( 'Edit any page or post with the visual builder, or manage your global brand settings inside the editor.', 'open-builder' ) . '</p>';
+
+		if ( isset( $_GET['openb_flushed'] ) ) {
+			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'CSS cache cleared. Files rebuild automatically on next visit.', 'open-builder' ) . '</p></div>';
+		}
 
 		$pages = get_posts( [ 'post_type' => 'page', 'numberposts' => 20, 'orderby' => 'modified', 'order' => 'DESC' ] );
 		if ( $pages ) {
@@ -92,6 +108,16 @@ class Admin {
 			}
 			echo '</tbody></table>';
 		}
+
+		// Tools.
+		echo '<h2>' . esc_html__( 'Tools', 'open-builder' ) . '</h2>';
+		echo '<p>' . esc_html__( 'CSS is cached to files in your uploads folder for performance. Regenerate them after updating the plugin or theme.', 'open-builder' ) . '</p>';
+		printf(
+			'<form method="post" action="%s">%s<input type="hidden" name="action" value="openb_flush_css"><button type="submit" class="button">%s</button></form>',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			wp_nonce_field( 'openb_flush_css', '_wpnonce', true, false ),
+			esc_html__( 'Regenerate CSS Cache', 'open-builder' )
+		);
 
 		echo '</div>';
 	}

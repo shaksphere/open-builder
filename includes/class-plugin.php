@@ -32,6 +32,9 @@ final class Plugin {
 	/** @var Theme_Builder */
 	public $theme_builder;
 
+	/** @var Css_Store */
+	public $css_store;
+
 	public static function instance(): Plugin {
 		if ( null === self::$instance ) {
 			self::$instance = new self();
@@ -52,6 +55,7 @@ final class Plugin {
 		require_once $includes . 'class-widgets.php';
 		require_once $includes . 'class-css-generator.php';
 		require_once $includes . 'class-renderer.php';
+		require_once $includes . 'class-css-store.php';
 		require_once $includes . 'class-forms.php';
 		require_once $includes . 'class-rest.php';
 		require_once $includes . 'class-theme-builder.php';
@@ -69,6 +73,7 @@ final class Plugin {
 		$this->widgets       = new Widgets();
 		$this->css           = new Css_Generator( $this->global_styles );
 		$this->renderer      = new Renderer( $this->widgets, $this->css );
+		$this->css_store     = new Css_Store( $this->renderer, $this->global_styles );
 		$this->forms         = new Forms();
 		$this->rest          = new Rest( $this->widgets, $this->renderer, $this->global_styles, $this->forms );
 		$this->forms->register_hooks();

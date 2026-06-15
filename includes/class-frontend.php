@@ -16,6 +16,10 @@ class Frontend {
 	/** @var int[] posts whose CSS we still need to print */
 	private $queued_css = [];
 
+	/** Fallback flags set during enqueue() when a CSS file couldn't be produced. */
+	private $inline_global = false;
+	private $inline_page   = 0;
+
 	public function __construct( Renderer $renderer ) {
 		$this->renderer = $renderer;
 	}
@@ -29,6 +33,11 @@ class Frontend {
 		add_filter( 'body_class', [ $this, 'page_body_classes' ] );
 		add_action( 'wp_head', [ $this, 'print_page_css' ], 21 );
 		add_action( 'wp_footer', [ $this, 'print_page_js' ], 99 );
+
+		// Remove a post's cached CSS file when it's deleted.
+		add_action( 'before_delete_post', function ( $post_id ) {
+			Plugin::instance()->css_store->delete_page( (int) $post_id );
+		} );
 	}
 
 	/** Page settings for the current singular request, or [] if none. */
@@ -99,16 +108,40 @@ class Frontend {
 		wp_register_style( 'openb-frontend', OPENB_URL . 'assets/css/frontend.css', [], OPENB_VERSION );
 		wp_register_script( 'openb-frontend', OPENB_URL . 'assets/js/frontend.js', [], OPENB_VERSION, true );
 
-		$singular_enabled = is_singular() && Post_Types::is_enabled( get_queried_object_id() );
+		$post_id          = is_singular() ? get_queried_object_id() : 0;
+		$singular_enabled = $post_id && Post_Types::is_enabled( $post_id );
 		$theme_builder    = Plugin::instance()->theme_builder && Plugin::instance()->theme_builder->applies_to_request();
 
-		if ( $singular_enabled || $theme_builder ) {
-			wp_enqueue_style( 'openb-frontend' );
-			wp_enqueue_script( 'openb-frontend' );
-			wp_localize_script( 'openb-frontend', 'OPENB_FRONT', [
-				'restUrl' => esc_url_raw( rest_url( Rest::NS ) ),
-				'postId'  => is_singular() ? get_queried_object_id() : 0,
-			] );
+		if ( ! $singular_enabled && ! $theme_builder ) {
+			return;
+		}
+
+		wp_enqueue_style( 'openb-frontend' );
+		wp_enqueue_script( 'openb-frontend' );
+		wp_localize_script( 'openb-frontend', 'OPENB_FRONT', [
+			'restUrl' => esc_url_raw( rest_url( Rest::NS ) ),
+			'postId'  => $post_id,
+		] );
+
+		// Cached CSS files: the global brand/base file site-wide, and the
+		// per-page node CSS. Each falls back to inline (see print_css) if the
+		// file can't be produced.
+		$store = Plugin::instance()->css_store;
+
+		$global_url = $store->global_url();
+		if ( '' !== $global_url ) {
+			wp_enqueue_style( 'openb-global', $global_url, [ 'openb-frontend' ], null );
+		} else {
+			$this->inline_global = true;
+		}
+
+		if ( $singular_enabled ) {
+			$page_url = $store->page_url( $post_id );
+			if ( '' !== $page_url ) {
+				wp_enqueue_style( 'openb-page-' . $post_id, $page_url, [ 'openb-frontend' ], null );
+			} else {
+				$this->inline_page = $post_id;
+			}
 		}
 	}
 
@@ -132,27 +165,30 @@ class Frontend {
 	}
 
 	/**
-	 * Print compiled CSS. Prefer the value cached at save time; recompile as a
-	 * fallback if it's missing (e.g. content imported without going through save).
+	 * Inline-CSS fallback. Only runs when enqueue() couldn't produce a cached
+	 * file (e.g. uploads not writable). The common path emits nothing here
+	 * because the CSS is served from real, cacheable stylesheet files.
 	 */
 	public function print_css(): void {
-		if ( ! is_singular() ) {
-			return;
-		}
-		$post_id = get_queried_object_id();
-		if ( ! $post_id || ! Post_Types::is_enabled( $post_id ) ) {
-			return;
+		// Page file unavailable → inline the full, self-contained compiled CSS.
+		if ( $this->inline_page ) {
+			$post_id = (int) $this->inline_page;
+			$css = get_post_meta( $post_id, Post_Types::META_CSS, true );
+			if ( '' === $css ) {
+				$css = $this->renderer->compile_css( Post_Types::get_tree( $post_id ), Plugin::instance()->global_styles );
+			}
+			if ( '' !== $css ) {
+				printf( "<style id=\"openb-styles-%d\">%s</style>\n", $post_id, $css );
+			}
+			return; // Full inline already includes the global vars.
 		}
 
-		$css = get_post_meta( $post_id, Post_Types::META_CSS, true );
-		if ( '' === $css ) {
-			$tree = Post_Types::get_tree( $post_id );
-			$css  = $this->renderer->compile_css( $tree, Plugin::instance()->global_styles );
-		}
-
-		if ( '' !== $css ) {
-			// $css is compiled exclusively from sanitized style values.
-			printf( "<style id=\"openb-styles-%d\">%s</style>\n", (int) $post_id, $css );
+		// Page used a file but the global file failed → inline just the globals.
+		if ( $this->inline_global ) {
+			$css = Plugin::instance()->css_store->global_css();
+			if ( '' !== $css ) {
+				printf( "<style id=\"openb-global-inline\">%s</style>\n", $css );
+			}
 		}
 	}
 }

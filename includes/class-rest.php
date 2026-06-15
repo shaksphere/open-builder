@@ -96,6 +96,9 @@ class Rest {
 
 		Post_Types::save_tree( $post_id, $tree, $css );
 
+		// Write the cached per-page CSS file (falls back to inline meta on failure).
+		Plugin::instance()->css_store->write_page( $post_id, $this->renderer->compile_node_css( $tree ) );
+
 		// Optional page settings (layout, background, custom CSS/JS, body classes).
 		$page = $request->get_param( 'page_settings' );
 		if ( is_string( $page ) ) {
@@ -143,6 +146,10 @@ class Rest {
 			$incoming = json_decode( $incoming, true );
 		}
 		$saved = $this->globals->save( is_array( $incoming ) ? $incoming : [] );
+
+		// Brand variables live in the shared global file — rebuild it once.
+		Plugin::instance()->css_store->rebuild_global();
+
 		return new \WP_REST_Response( [ 'success' => true, 'styles' => $saved, 'css' => $this->globals->to_css() ], 200 );
 	}
 

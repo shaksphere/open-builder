@@ -4,7 +4,7 @@ Tags: page builder, visual builder, drag and drop, editor, landing page
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.4.0
+Stable tag: 1.5.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -57,6 +57,11 @@ As a sanitized JSON tree in post meta (`_openb_tree`), with compiled CSS cached
 in `_openb_compiled_css`.
 
 == Changelog ==
+
+= 1.5.0 =
+* Performance: compiled CSS is now written to real, cacheable stylesheet files in uploads/open-builder/ (a site-wide global.css for brand variables + a per-page page-{id}.css) instead of an inline <style> on every request.
+* Files generate on save, rebuild lazily if missing, and transparently fall back to inline CSS when the filesystem isn't writable.
+* "Regenerate CSS Cache" tool on the Open Builder dashboard; cache files are removed on uninstall and when a post is deleted.
 
 = 1.4.0 =
 * Right-click context menu on canvas blocks and layer rows: Edit, Copy, Cut, Paste (inside/after), Duplicate, Move Up/Down, Delete.

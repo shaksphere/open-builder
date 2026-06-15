@@ -12,9 +12,19 @@ global $wpdb;
 delete_option( 'openb_global_styles' );
 
 // Remove our post meta from every post.
-$meta_keys = [ '_openb_tree', '_openb_enabled', '_openb_compiled_css' ];
+$meta_keys = [ '_openb_tree', '_openb_enabled', '_openb_compiled_css', '_openb_page_settings' ];
 foreach ( $meta_keys as $key ) {
 	$wpdb->delete( $wpdb->postmeta, [ 'meta_key' => $key ] );
+}
+
+// Remove the cached CSS files directory.
+$up = wp_upload_dir();
+$css_dir = trailingslashit( $up['basedir'] ) . 'open-builder';
+if ( is_dir( $css_dir ) ) {
+	foreach ( (array) glob( $css_dir . '/*' ) as $file ) {
+		@unlink( $file );
+	}
+	@rmdir( $css_dir );
 }
 
 // Drop the form-entries table.

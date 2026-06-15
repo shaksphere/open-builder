@@ -102,4 +102,12 @@ class Renderer {
 	public function compile_css( array $tree, Global_Styles $globals ): string {
 		return $globals->to_css() . $this->css->responsive_base() . $this->css->compile( $tree );
 	}
+
+	/**
+	 * Per-node CSS only (no global :root vars or responsive base). Used for the
+	 * cached per-page CSS file, since the global file carries the shared parts.
+	 */
+	public function compile_node_css( array $tree ): string {
+		return $this->css->compile( $tree );
+	}
 }
