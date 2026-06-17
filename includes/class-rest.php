@@ -56,6 +56,15 @@ class Rest {
 			'permission_callback' => [ $this, 'can_manage' ],
 		] );
 
+		register_rest_route( self::NS, '/create-template', [
+			'methods'             => 'POST',
+			'callback'            => [ $this, 'create_template' ],
+			'permission_callback' => [ $this, 'can_manage' ],
+			'args'                => [
+				'type' => [ 'required' => true, 'type' => 'string' ],
+			],
+		] );
+
 		register_rest_route( self::NS, '/form', [
 			'methods'             => 'POST',
 			'callback'            => [ $this, 'submit_form' ],
@@ -151,6 +160,39 @@ class Rest {
 		Plugin::instance()->css_store->rebuild_global();
 
 		return new \WP_REST_Response( [ 'success' => true, 'styles' => $saved, 'css' => $this->globals->to_css() ], 200 );
+	}
+
+	/**
+	 * Create an empty theme-builder template of a given type, assigned site-wide
+	 * by default, and return the URL to open it in the builder. Used by the
+	 * editor's "Add Header" / "Add Footer" canvas affordances.
+	 */
+	public function create_template( \WP_REST_Request $request ): \WP_REST_Response {
+		$type  = sanitize_key( (string) $request->get_param( 'type' ) );
+		$types = Theme_Builder::types();
+		if ( ! array_key_exists( $type, $types ) ) {
+			return new \WP_REST_Response( [ 'success' => false, 'message' => __( 'Unknown template type.', 'open-builder' ) ], 400 );
+		}
+
+		$post_id = wp_insert_post( [
+			'post_type'   => Post_Types::CPT_TEMPLATE,
+			'post_status' => 'publish',
+			/* translators: %s: template type label (e.g. Header) */
+			'post_title'  => sprintf( __( '%s — Entire Site', 'open-builder' ), $types[ $type ] ),
+		], true );
+
+		if ( is_wp_error( $post_id ) || ! $post_id ) {
+			return new \WP_REST_Response( [ 'success' => false, 'message' => __( 'Could not create the template.', 'open-builder' ) ], 500 );
+		}
+
+		update_post_meta( $post_id, Theme_Builder::META_TYPE, $type );
+		update_post_meta( $post_id, Theme_Builder::META_CONDITIONS, [ [ 'relation' => 'include', 'rule' => 'entire_site' ] ] );
+
+		return new \WP_REST_Response( [
+			'success'  => true,
+			'post_id'  => (int) $post_id,
+			'edit_url' => Editor::edit_url( (int) $post_id ),
+		], 200 );
 	}
 
 	public function submit_form( \WP_REST_Request $request ): \WP_REST_Response {

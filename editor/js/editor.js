@@ -63,6 +63,7 @@
 		selectedId: null,
 		collapsed: {}, // layer ids collapsed in the tree
 		device: 'desktop',
+		showChrome: loadShowChrome(), // header/footer chrome visible in canvas
 		dirty: false,
 		history: [],
 		future: [],
@@ -96,6 +97,10 @@
 	function saveClipboard(node) {
 		state.clipboard = node;
 		try { localStorage.setItem('openb_clipboard', JSON.stringify(node)); } catch (e) {}
+	}
+	// Whether the theme header/footer chrome is shown in the canvas (persisted).
+	function loadShowChrome() {
+		try { return localStorage.getItem('openb_show_chrome') !== '0'; } catch (e) { return true; }
 	}
 
 	/* ----------------------------------------------------------------------- *
@@ -256,7 +261,11 @@
 	function decorateCanvas() {
 		var doc = canvasDoc();
 		if (!doc) return;
-		var nodes = doc.querySelectorAll('[data-ob-id]');
+		decorateRegions(doc);
+		// Only decorate nodes inside the editable canvas. Nodes inside the theme
+		// header/footer regions live outside #openb-canvas and are not selectable
+		// in the page context — they are edited by opening their template.
+		var nodes = doc.querySelectorAll('#openb-canvas [data-ob-id]');
 		Array.prototype.forEach.call(nodes, function (n) {
 			n.classList.add('openb-editable');
 			if (n.getAttribute('data-ob-id') === state.selectedId) n.classList.add('openb-selected');
@@ -283,6 +292,76 @@
 				if (a) e.preventDefault();
 			}, true);
 		}
+	}
+
+	/* ----------------------------------------------------------------------- *
+	 * Theme regions: header/footer chrome shown for context. Bound once (they
+	 * render server-side and persist across page re-renders).
+	 * ----------------------------------------------------------------------- */
+	function decorateRegions(doc) {
+		applyChromeVisibility(doc);
+		if (doc.body.dataset.obRegionsBound) return;
+		doc.body.dataset.obRegionsBound = '1';
+
+		// "Edit Header/Footer": open that template in the builder.
+		Array.prototype.forEach.call(doc.querySelectorAll('[data-ob-edit-region]'), function (btn) {
+			var region = btn.closest('.openb-region');
+			var tplId = region && region.getAttribute('data-ob-template');
+			btn.addEventListener('click', function (e) {
+				e.preventDefault(); e.stopPropagation();
+				if (tplId) goToEditor(tplId);
+			});
+		});
+		// Clicking anywhere in a region (not just the badge) also edits it.
+		Array.prototype.forEach.call(doc.querySelectorAll('.openb-region'), function (region) {
+			var tplId = region.getAttribute('data-ob-template');
+			region.addEventListener('click', function (e) {
+				e.preventDefault(); e.stopPropagation();
+				if (tplId) goToEditor(tplId);
+			});
+		});
+		// "+ Add Header/Footer": create the template, then open it.
+		Array.prototype.forEach.call(doc.querySelectorAll('[data-ob-add]'), function (add) {
+			add.addEventListener('click', function (e) {
+				e.preventDefault(); e.stopPropagation();
+				createTemplate(add.getAttribute('data-ob-add'));
+			});
+		});
+	}
+
+	function applyChromeVisibility(doc) {
+		doc = doc || canvasDoc();
+		if (doc && doc.body) doc.body.classList.toggle('openb-hide-chrome', !state.showChrome);
+	}
+
+	// Navigate the editor to another post/template, warning about unsaved work.
+	function goToEditor(targetId) {
+		if (state.dirty && !window.confirm('You have unsaved changes. Leave and discard them?')) return;
+		state.dirty = false;
+		var u = new URL(BOOT.homeUrl || window.location.origin, window.location.origin);
+		u.searchParams.set(BOOT.editQv || 'openb_editor', targetId);
+		window.location.href = u.toString();
+	}
+
+	function createTemplate(type) {
+		if (!BOOT.canManage) { toast('You need the manage-options capability to add templates.', true); return; }
+		toast('Creating ' + type + '…');
+		api('/create-template', { type: type }).then(function (res) {
+			if (res.ok && res.data && res.data.edit_url) {
+				state.dirty = false;
+				window.location.href = res.data.edit_url;
+			} else {
+				toast((res.data && res.data.message) || 'Could not create template', true);
+			}
+		}).catch(function () { toast('Could not create template', true); });
+	}
+
+	function toggleChrome() {
+		state.showChrome = !state.showChrome;
+		try { localStorage.setItem('openb_show_chrome', state.showChrome ? '1' : '0'); } catch (e) {}
+		applyChromeVisibility();
+		var btn = document.getElementById('openb-chrome-toggle');
+		if (btn) btn.classList.toggle('is-active', state.showChrome);
 	}
 
 	function onCanvasClick(e) {
@@ -445,7 +524,7 @@
 		var doc = canvasDoc();
 		if (doc) {
 			Array.prototype.forEach.call(doc.querySelectorAll('.openb-selected'), function (n) { n.classList.remove('openb-selected'); });
-			var sel = doc.querySelector('[data-ob-id="' + id + '"]');
+			var sel = doc.querySelector('#openb-canvas [data-ob-id="' + id + '"]');
 			if (sel) sel.classList.add('openb-selected');
 		}
 		renderInspector();
@@ -488,6 +567,13 @@
 
 		var saveBtn = el('button', { class: 'openb-btn openb-btn--primary', id: 'openb-save', onclick: save }, ['Save']);
 
+		// Toggle the theme header/footer chrome in the canvas. Hidden when editing
+		// a template itself (there's no chrome to show around it).
+		var chromeBtn = BOOT.isTemplate ? null : el('button', {
+			class: 'openb-btn' + (state.showChrome ? ' is-active' : ''),
+			id: 'openb-chrome-toggle', title: 'Show/hide theme header & footer', onclick: toggleChrome
+		}, [svg('M2 4h16v4H2zM2 14h16v4H2z'), ' Chrome']);
+
 		return el('div', { class: 'openb-topbar' }, [
 			el('div', { class: 'openb-topbar__left' }, [
 				el('span', { class: 'openb-logo', text: 'Open Builder' }),
@@ -495,6 +581,7 @@
 			]),
 			el('div', { class: 'openb-topbar__center' }, deviceBtns),
 			el('div', { class: 'openb-topbar__right' }, [
+				chromeBtn,
 				el('button', { class: 'openb-btn', title: 'Undo', onclick: undo }, [svg('M7 7L3 11l4 4M3 11h10a4 4 0 010 8h-2')]),
 				el('button', { class: 'openb-btn', title: 'Redo', onclick: redo }, [svg('M13 7l4 4-4 4M17 11H7a4 4 0 000 8h2')]),
 				el('button', { class: 'openb-btn', title: 'Page Settings', onclick: openPageSettings }, [svg('M10 3l1.5 2.6 3-.5-.5 3L16.5 11l-2.5 1.4.5 3-3-.5L10 17l-1.5-2.6-3 .5.5-3L3.5 9l2.5-1.4-.5-3 3 .5z'), ' Page']),

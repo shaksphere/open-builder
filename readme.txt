@@ -4,7 +4,7 @@ Tags: page builder, visual builder, drag and drop, editor, landing page
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.6.3
+Stable tag: 1.7.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -57,6 +57,12 @@ As a sanitized JSON tree in post meta (`_openb_tree`), with compiled CSS cached
 in `_openb_compiled_css`.
 
 == Changelog ==
+
+= 1.7.0 =
+* Theme header & footer in the builder: when editing a page or post, the resolved site header now renders above and the footer below the live page content, so you design in real context (true WYSIWYG). They render once, server-side, outside the editable region, so your page edits never disturb them.
+* Header/footer are shown as read-only "template regions": click one (or its "Edit Header/Footer" badge) to open that template in the builder.
+* "Add Header" / "Add Footer" affordances appear in the canvas when no template applies; they create a site-wide template and open it for editing.
+* New topbar "Chrome" toggle to show/hide the header & footer chrome for a clean canvas.
 
 = 1.6.3 =
 * Fix: sections set to Full Width now actually span the viewport on the front end, matching the editor. Builder content breaks out of the theme's (narrow, centered) content column; Boxed sections still re-center, and the page-level Boxed layout keeps everything inside the theme column.

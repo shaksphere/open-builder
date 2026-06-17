@@ -75,6 +75,8 @@ class Editor {
 			'postId'      => $post_id,
 			'postTitle'   => get_the_title( $post_id ),
 			'previewUrl'  => add_query_arg( self::QV_PREVIEW, $post_id, home_url( '/' ) ),
+			'homeUrl'     => esc_url_raw( home_url( '/' ) ),
+			'editQv'      => self::QV_EDITOR,
 			'exitUrl'     => get_edit_post_link( $post_id, 'raw' ) ?: admin_url(),
 			'viewUrl'     => get_permalink( $post_id ),
 			'widgets'     => $plugin->widgets->schema_for_editor(),
@@ -82,6 +84,7 @@ class Editor {
 			'tree'         => $tree,
 			'icons'        => Widget_Icon::set(),
 			'canManage'    => Security::can_manage(),
+			'isTemplate'   => ( Post_Types::CPT_TEMPLATE === get_post_type( $post_id ) ),
 			'pageSettings' => Post_Types::get_page_settings( $post_id ),
 			'canCustomJs'  => current_user_can( 'unfiltered_html' ),
 		];
@@ -128,8 +131,53 @@ class Editor {
 	}
 
 	/**
+	 * Resolve the header/footer templates that would apply when viewing the
+	 * given post on the front end, so the editor can render the real site chrome
+	 * in context. We temporarily swap the global query to a query for this post
+	 * so the conditions engine's conditional tags (is_singular, is_front_page…)
+	 * reflect the edited post rather than the preview route's home request.
+	 *
+	 * @return array{header:int,footer:int}
+	 */
+	private function resolve_chrome_for( int $post_id ): array {
+		$tb = Plugin::instance()->theme_builder;
+		if ( ! $tb ) {
+			return [ 'header' => 0, 'footer' => 0 ];
+		}
+
+		global $wp_query, $wp_the_query;
+		$post_type = get_post_type( $post_id );
+		$args      = ( 'page' === $post_type )
+			? [ 'page_id' => $post_id ]
+			: [ 'p' => $post_id, 'post_type' => $post_type ];
+
+		$saved_query     = $wp_query;
+		$saved_the_query = $wp_the_query;
+
+		$sim          = new \WP_Query( $args );
+		$wp_query     = $sim;       // phpcs:ignore WordPress.WP.GlobalVariablesOverride
+		$wp_the_query = $sim;       // phpcs:ignore WordPress.WP.GlobalVariablesOverride
+
+		$chrome = [
+			'header' => $tb->resolve( 'header' ),
+			'footer' => $tb->resolve( 'footer' ),
+		];
+
+		$wp_query     = $saved_query;     // phpcs:ignore WordPress.WP.GlobalVariablesOverride
+		$wp_the_query = $saved_the_query; // phpcs:ignore WordPress.WP.GlobalVariablesOverride
+		wp_reset_postdata();
+
+		return $chrome;
+	}
+
+	/**
 	 * Minimal same-origin document the canvas iframe loads. The parent editor
 	 * injects rendered HTML/CSS into it directly (same origin).
+	 *
+	 * For pages/posts we also render the resolved theme header above and footer
+	 * below the editable canvas, OUTSIDE #openb-canvas, so the page's live
+	 * re-renders never touch them. Templates themselves are edited bare (no
+	 * chrome wrapped around chrome).
 	 */
 	private function render_preview( int $post_id ): void {
 		$plugin = Plugin::instance();
@@ -138,6 +186,14 @@ class Editor {
 		$tree   = Post_Types::get_tree( $post_id );
 		$html   = $plugin->renderer->render_tree( $tree );
 		$css    = $plugin->renderer->compile_css( $tree, $plugin->global_styles );
+
+		$is_template  = ( Post_Types::CPT_TEMPLATE === get_post_type( $post_id ) );
+		$chrome       = $is_template ? [ 'header' => 0, 'footer' => 0 ] : $this->resolve_chrome_for( $post_id );
+		$header_id    = (int) $chrome['header'];
+		$footer_id    = (int) $chrome['footer'];
+		$header_html  = $header_id ? Theme_Builder::render_template( $header_id ) : '';
+		$footer_html  = $footer_id ? Theme_Builder::render_template( $footer_id ) : '';
+		$show_chrome  = ! $is_template;
 
 		nocache_headers();
 		header( 'Content-Type: text/html; charset=utf-8' );
@@ -165,10 +221,43 @@ class Editor {
 		[contenteditable="true"]{min-width:8px;}
 		body.openb-preview-body{margin:0;}
 		.ob-empty-dropzone{display:flex;align-items:center;justify-content:center;min-height:80px;width:100%;border:2px dashed #cbd5e1;border-radius:8px;color:#94a3b8;font-family:system-ui,sans-serif;font-size:13px;background:rgba(148,163,184,.05);}
+		/* Theme regions: shown for context, not inline-editable in the page. */
+		.openb-region{position:relative;}
+		.openb-region::after{content:"";position:absolute;inset:0;pointer-events:none;outline:1px dashed transparent;transition:outline-color .1s,background-color .1s;}
+		.openb-region:hover::after{outline-color:#a855f7;background:rgba(168,85,247,.04);}
+		.openb-region__badge{position:absolute;top:8px;right:8px;z-index:9;display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;border:none;cursor:pointer;background:#7c3aed;color:#fff;font:600 12px/1 system-ui,sans-serif;box-shadow:0 1px 4px rgba(0,0,0,.25);opacity:0;transition:opacity .12s;}
+		.openb-region:hover .openb-region__badge{opacity:1;}
+		.openb-region__badge:hover{background:#6d28d9;}
+		.openb-region--footer .openb-region__badge{top:auto;bottom:8px;}
+		.openb-region-add{display:flex;align-items:center;justify-content:center;gap:8px;min-height:60px;margin:0;padding:16px 20px;cursor:pointer;border:2px dashed #c4b5fd;background:rgba(124,58,237,.04);color:#7c3aed;font:600 14px/1 system-ui,sans-serif;}
+		.openb-region-add:hover{background:rgba(124,58,237,.09);border-color:#a855f7;}
+		body.openb-hide-chrome .openb-region,body.openb-hide-chrome .openb-region-add{display:none !important;}
 	</style>
 </head>
-<body class="openb-preview-body">
+<body class="openb-preview-body<?php echo $show_chrome ? '' : ' openb-no-chrome'; ?>">
+	<?php if ( $show_chrome ) : ?>
+		<?php if ( '' !== $header_html ) : ?>
+			<div class="openb-region openb-region--header" data-ob-region="header" data-ob-template="<?php echo esc_attr( $header_id ); ?>">
+				<button type="button" class="openb-region__badge" data-ob-edit-region="header"><?php esc_html_e( '✎ Edit Header', 'open-builder' ); ?></button>
+				<?php echo $header_html; // Trusted renderer + compiled CSS. ?>
+			</div>
+		<?php else : ?>
+			<div class="openb-region-add" data-ob-add="header"><?php esc_html_e( '+ Add Header', 'open-builder' ); ?></div>
+		<?php endif; ?>
+	<?php endif; ?>
+
 	<div id="openb-canvas"><?php echo $html; // Built by trusted Renderer from sanitized tree. ?></div>
+
+	<?php if ( $show_chrome ) : ?>
+		<?php if ( '' !== $footer_html ) : ?>
+			<div class="openb-region openb-region--footer" data-ob-region="footer" data-ob-template="<?php echo esc_attr( $footer_id ); ?>">
+				<button type="button" class="openb-region__badge" data-ob-edit-region="footer"><?php esc_html_e( '✎ Edit Footer', 'open-builder' ); ?></button>
+				<?php echo $footer_html; // Trusted renderer + compiled CSS. ?>
+			</div>
+		<?php else : ?>
+			<div class="openb-region-add" data-ob-add="footer"><?php esc_html_e( '+ Add Footer', 'open-builder' ); ?></div>
+		<?php endif; ?>
+	<?php endif; ?>
 </body>
 </html>
 		<?php
