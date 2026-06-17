@@ -29,7 +29,36 @@ body.openb-built { overflow-x: hidden; }
 .ob-columns { width: 100%; }
 .ob-column { width: 100%; }
 
-/* Headings & text inherit theme typography but normalize spacing */
+/* Typographic baseline. Scoped to .ob-root so it affects builder content only,
+   never the surrounding theme. Set explicitly (not inherited from theme/browser)
+   so the editor's bare canvas iframe and the front end inside any theme render
+   identically — true WYSIWYG. Brand fonts come from the global CSS variables.
+   We deliberately do NOT set `color` on headings here: the per-element Text
+   Color control sets `color` on the node wrapper and relies on inheritance into
+   the heading, so a direct rule would break it. Heading font-sizes use `em`
+   (not rem) so the per-element Font Size control — which sets font-size on the
+   wrapper — still scales them, while the higher specificity insulates against a
+   theme's own `h2 { font-size }` rules. */
+.ob-root {
+	font-family: var(--ob-font-body, system-ui, -apple-system, sans-serif);
+	font-size: 16px;
+	line-height: 1.6;
+	color: var(--ob-color-text, #1f2937);
+}
+.ob-root h1, .ob-root h2, .ob-root h3,
+.ob-root h4, .ob-root h5, .ob-root h6,
+.ob-heading__text {
+	font-family: var(--ob-font-heading, 'Inter', system-ui, sans-serif);
+	font-weight: 700;
+}
+.ob-root h1.ob-heading__text { font-size: 2em; }
+.ob-root h2.ob-heading__text { font-size: 1.5em; }
+.ob-root h3.ob-heading__text { font-size: 1.17em; }
+.ob-root h4.ob-heading__text { font-size: 1em; }
+.ob-root h5.ob-heading__text { font-size: .83em; }
+.ob-root h6.ob-heading__text { font-size: .67em; }
+
+/* Headings & text: normalize spacing. */
 .ob-heading__text { margin: 0 0 .4em; line-height: 1.2; }
 .ob-heading__text a { color: inherit; text-decoration: none; }
 .ob-text__content { line-height: 1.6; }

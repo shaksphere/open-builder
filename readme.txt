@@ -4,7 +4,7 @@ Tags: page builder, visual builder, drag and drop, editor, landing page
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.7.0
+Stable tag: 1.7.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -57,6 +57,9 @@ As a sanitized JSON tree in post meta (`_openb_tree`), with compiled CSS cached
 in `_openb_compiled_css`.
 
 == Changelog ==
+
+= 1.7.1 =
+* Fix: builder text now renders with the same fonts and heading sizes in the editor and on the front end (true WYSIWYG). Builder content (.ob-root) gets an explicit typographic baseline using the brand fonts, instead of inheriting the browser default in the editor's bare canvas and the theme's fonts on the front end. Heading sizes use em so the per-element Font Size control still scales them, and no direct color is set so the Text Color control keeps working.
 
 = 1.7.0 =
 * Theme header & footer in the builder: when editing a page or post, the resolved site header now renders above and the footer below the live page content, so you design in real context (true WYSIWYG). They render once, server-side, outside the editable region, so your page edits never disturb them.
