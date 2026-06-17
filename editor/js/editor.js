@@ -55,7 +55,7 @@
 	 * State
 	 * ----------------------------------------------------------------------- */
 	var state = {
-		tree: Array.isArray(BOOT.tree) ? BOOT.tree : [],
+		tree: normalizeTree(Array.isArray(BOOT.tree) ? BOOT.tree : []),
 		globals: BOOT.globals || { colors: [], fonts: [], sizes: [] },
 		pageSettings: BOOT.pageSettings && typeof BOOT.pageSettings === 'object' ? BOOT.pageSettings : {},
 		title: BOOT.postTitle || '',
@@ -68,6 +68,26 @@
 		future: [],
 		drag: null // { mode:'new'|'move', type|id }
 	};
+
+	// PHP encodes empty maps as JSON arrays ([]). Setting a string key on a JS
+	// Array (e.g. background['desktop'] = …) is dropped by JSON.stringify, so we
+	// coerce settings.style / background / content / advanced to plain objects on
+	// load. Without this, newly-set backgrounds silently never save.
+	function normalizeTree(nodes) {
+		(nodes || []).forEach(function (n) {
+			n.settings = (n.settings && !Array.isArray(n.settings)) ? n.settings : {};
+			['content', 'style', 'background', 'advanced'].forEach(function (k) {
+				if (Array.isArray(n.settings[k]) || n.settings[k] == null) n.settings[k] = {};
+			});
+			['style', 'background'].forEach(function (k) {
+				Object.keys(n.settings[k]).forEach(function (bp) {
+					if (Array.isArray(n.settings[k][bp])) n.settings[k][bp] = {};
+				});
+			});
+			if (n.children && n.children.length) normalizeTree(n.children);
+		});
+		return nodes;
+	}
 
 	// Clipboard persists across pages via localStorage (best-effort).
 	function loadClipboard() {
@@ -635,6 +655,16 @@
 		return el('button', { class: 'openb-subtab' + (inspectorTab === name ? ' is-active' : ''), 'data-subtab': name, text: label });
 	}
 
+	// Rebuild the inspector but keep the scroll position (used when a control
+	// change needs to re-render the panel, e.g. switching background Type).
+	function refreshInspectorKeepScroll() {
+		var body = document.querySelector('.openb-inspector__body');
+		var top = body ? body.scrollTop : 0;
+		renderInspector();
+		var nb = document.querySelector('.openb-inspector__body');
+		if (nb) nb.scrollTop = top;
+	}
+
 	function buildContentControls(node, def) {
 		var wrap = el('div', {});
 		var controls = def.controls || {};
@@ -811,7 +841,7 @@
 		(ctrl.choices || Object.keys(BOOT.icons || {})).forEach(function (name) {
 			var b = el('button', {
 				class: 'openb-iconpick' + (value === name ? ' is-active' : ''), title: name,
-				html: widgetIcon(name), onclick: function () { onChange(name); renderInspector(); }
+				html: widgetIcon(name), onclick: function () { onChange(name); refreshInspectorKeepScroll(); }
 			});
 			wrap.appendChild(b);
 		});
@@ -848,10 +878,11 @@
 	/* ----- Style tab: per-breakpoint visual controls ----- */
 	function buildStyleControls(node) {
 		var bp = state.device;
-		node.settings.style = node.settings.style || {};
-		node.settings.style[bp] = node.settings.style[bp] || {};
-		node.settings.background = node.settings.background || {};
-		node.settings.background[bp] = node.settings.background[bp] || { type: 'none' };
+		// Guard against PHP's empty-array-as-[] encoding (see normalizeTree).
+		if (Array.isArray(node.settings.style) || !node.settings.style) node.settings.style = {};
+		if (Array.isArray(node.settings.background) || !node.settings.background) node.settings.background = {};
+		if (Array.isArray(node.settings.style[bp]) || !node.settings.style[bp]) node.settings.style[bp] = {};
+		if (Array.isArray(node.settings.background[bp]) || !node.settings.background[bp]) node.settings.background[bp] = { type: 'none' };
 		var styleMap = node.settings.style[bp];
 
 		function setProp(prop, val) {
@@ -1108,8 +1139,11 @@
 		(state.globals.colors || []).forEach(function (c) {
 			swatches.appendChild(el('button', { class: 'openb-swatch', title: c.name, style: 'background:' + c.value, onclick: function () { value = 'var(--ob-color-' + c.id + ')'; text.value = value; if (/^#([0-9a-f]{6})$/i.test(c.value)) native.value = c.value; paint(); onChange(value); } }));
 		});
-		var clear = el('button', { class: 'openb-btn openb-btn--block', text: 'Clear', onclick: function () { value = ''; text.value = ''; paint(); onChange(''); } });
-		pop.appendChild(native); pop.appendChild(text); pop.appendChild(swatches); pop.appendChild(clear);
+		var actions = el('div', { class: 'openb-colorpop__actions' }, [
+			el('button', { class: 'openb-btn', text: 'Clear', onclick: function () { value = ''; text.value = ''; paint(); onChange(''); } }),
+			el('button', { class: 'openb-btn openb-btn--primary', text: 'Done', onclick: function () { pop.style.display = 'none'; } })
+		]);
+		pop.appendChild(native); pop.appendChild(text); pop.appendChild(swatches); pop.appendChild(actions);
 
 		swatch.addEventListener('click', function () { pop.style.display = pop.style.display === 'none' ? 'flex' : 'none'; });
 		paint();
@@ -1172,7 +1206,7 @@
 			{ val: 'color', title: 'Color', svg: STYLE_ICON.bgColor },
 			{ val: 'image', title: 'Image', svg: STYLE_ICON.bgImage },
 			{ val: 'gradient', title: 'Gradient', svg: STYLE_ICON.bgGradient }
-		], function (v) { bg.type = v || 'none'; commit(); renderInspector(); }));
+		], function (v) { bg.type = v || 'none'; commit(); refreshInspectorKeepScroll(); }));
 
 		if (bg.type === 'color') {
 			wrap.appendChild(colorPopoverRow('Color', bg.color || '', function (v) { bg.color = v; commit(); }));

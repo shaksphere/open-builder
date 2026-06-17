@@ -205,6 +205,11 @@ textarea.openb-input { resize: vertical; }
 .openb-colorpop__swatch.is-empty .openb-colorpop__value { mix-blend-mode: normal; }
 .openb-colorpop__panel { margin-top: 8px; background: #fff; border: 1px solid var(--ob-border); border-radius: 8px; padding: 10px; flex-direction: column; gap: 8px; }
 .openb-colorpop__native { width: 100%; height: 34px; border: 1px solid var(--ob-border); border-radius: 6px; background: none; cursor: pointer; padding: 2px; }
+.openb-colorpop__actions { display: flex; gap: 6px; }
+.openb-colorpop__actions .openb-btn { flex: 1; justify-content: center; background: #eef0f4; color: var(--ob-text); }
+.openb-colorpop__actions .openb-btn:hover { background: #e2e5ea; }
+.openb-colorpop__actions .openb-btn--primary { background: var(--ob-primary); color: #fff; }
+.openb-colorpop__actions .openb-btn--primary:hover { background: var(--ob-primary-dark); }
 
 /* Context menu */
 .openb-ctxmenu { position: fixed; z-index: 200; background: #fff; border: 1px solid var(--ob-border); border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,.18); padding: 5px; min-width: 168px; }

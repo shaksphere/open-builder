@@ -4,7 +4,7 @@ Tags: page builder, visual builder, drag and drop, editor, landing page
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.6.1
+Stable tag: 1.6.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -57,6 +57,11 @@ As a sanitized JSON tree in post meta (`_openb_tree`), with compiled CSS cached
 in `_openb_compiled_css`.
 
 == Changelog ==
+
+= 1.6.2 =
+* Fix: background colour (and other newly-set style maps) silently failed to save. PHP encodes empty maps as JSON arrays; setting a breakpoint key on a JS array was dropped by JSON.stringify. The tree is now normalised to objects on load.
+* Color picker now has a "Done" button to close it.
+* Switching background Type (or picking a content icon) no longer scrolls the Style panel back to the top.
 
 = 1.6.1 =
 * Fix: the color popover (Background, Text Color, Border, Shadow, Page Background) was clipped by the inspector's scroll container and could be unreachable, so a background color couldn't be picked or applied. The picker now expands inline as a full-width panel.
