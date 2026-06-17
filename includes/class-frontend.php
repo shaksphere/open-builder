@@ -49,6 +49,10 @@ class Frontend {
 	}
 
 	public function page_body_classes( array $classes ): array {
+		// Mark builder-enabled singular pages so full-bleed/overflow CSS applies.
+		if ( is_singular() && Post_Types::is_enabled( get_queried_object_id() ) ) {
+			$classes[] = 'openb-built';
+		}
 		$page = $this->current_page_settings();
 		if ( empty( $page ) ) {
 			return $classes;

@@ -1,7 +1,18 @@
 /* Open Builder — front-end base styles. Intentionally light: user styles come
    from the compiled per-node CSS. These are structural defaults + components. */
 
-.ob-root { width: 100%; }
+/* Full-bleed: builder content breaks out of the theme's (often narrow,
+   centered) content column so sections span the viewport, matching the editor
+   canvas. Boxed sections re-center via .ob-section__inner; the Boxed page
+   layout resets this below. */
+.ob-root {
+	position: relative;
+	width: 100vw;
+	max-width: 100vw;
+	left: calc(50% - 50vw);
+}
+/* Avoid a horizontal scrollbar from 100vw on builder pages. */
+body.openb-built { overflow-x: hidden; }
 
 /* Sections */
 .ob-section, .ob-node[data-ob-type="section"] { width: 100%; }
@@ -112,8 +123,8 @@
 .ob-dynamic { outline: 1px dashed rgba(37,99,235,.4); outline-offset: 2px; }
 
 /* Page-settings layouts (best-effort across themes) */
-.openb-layout-full .ob-section__inner { max-width: none; }
-.openb-layout-boxed .ob-root { max-width: var(--ob-container, 1140px); margin-left: auto; margin-right: auto; }
+/* Boxed layout: keep builder content inside the theme column (no full-bleed). */
+.openb-layout-boxed .ob-root { position: static; left: auto; width: 100%; max-width: var(--ob-container, 1140px); margin-left: auto; margin-right: auto; }
 
 /* ----- Video ----- */
 .ob-video { position: relative; width: 100%; overflow: hidden; border-radius: 8px; background: #000; }
