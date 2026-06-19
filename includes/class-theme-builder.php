@@ -130,13 +130,25 @@ class Theme_Builder {
 		(function(){
 			var idx = <?php echo count( $conditions ); ?>;
 			var rules = <?php echo wp_json_encode( $rules ); ?>;
+			function ruleSelect(idx){
+				var sel = document.createElement('select');
+				sel.name = 'openb_conditions['+idx+'][rule]';
+				sel.style.minWidth = '260px';
+				Object.keys(rules).forEach(function(k){
+					var o = document.createElement('option');
+					o.value = k;
+					o.textContent = rules[k]; // titles set as text, never HTML
+					sel.appendChild(o);
+				});
+				return sel;
+			}
 			document.getElementById('openb-add-cond').addEventListener('click', function(){
-				var opts = Object.keys(rules).map(function(k){return '<option value="'+k+'">'+rules[k]+'</option>';}).join('');
 				var tr = document.createElement('tr');
 				tr.className = 'openb-condition-row';
 				tr.innerHTML = '<td><select name="openb_conditions['+idx+'][relation]"><option value="include"><?php echo esc_js( __( 'Include', 'open-builder' ) ); ?></option><option value="exclude"><?php echo esc_js( __( 'Exclude', 'open-builder' ) ); ?></option></select></td>'+
-					'<td><select name="openb_conditions['+idx+'][rule]" style="min-width:260px">'+opts+'</select></td>'+
+					'<td class="openb-rule-cell"></td>'+
 					'<td><button type="button" class="button openb-remove-cond">&times;</button></td>';
+				tr.querySelector('.openb-rule-cell').appendChild(ruleSelect(idx));
 				document.getElementById('openb-conditions-rows').appendChild(tr);
 				idx++;
 			});
@@ -166,7 +178,61 @@ class Theme_Builder {
 			$choices[ 'singular:' . $pt->name ] = sprintf( /* translators: %s: post type label */ __( 'Singular: %s', 'open-builder' ), $pt->labels->singular_name );
 			$choices[ 'archive:' . $pt->name ]  = sprintf( /* translators: %s: post type label */ __( 'Archive: %s', 'open-builder' ), $pt->labels->name );
 		}
+
+		// Individual pages/posts so a template can target one specific page.
+		// Admin-only (this runs on the edit screen and on save), so the queries
+		// are fine here; capped to keep the dropdown manageable.
+		foreach ( self::targetable_objects() as $id => $label ) {
+			$choices[ 'post:' . $id ] = $label;
+		}
+
 		return $choices;
+	}
+
+	/**
+	 * A bounded list of specific pages/posts that can be targeted by a condition,
+	 * keyed by ID with a "{Type}: {Title}" label. Pages first (sites rarely have
+	 * many), then recent entries of each other public post type.
+	 *
+	 * @return array<int,string>
+	 */
+	private static function targetable_objects(): array {
+		$out = [];
+
+		$add = static function ( array $posts, string $type_label ) use ( &$out ) {
+			foreach ( $posts as $p ) {
+				$title = get_the_title( $p );
+				if ( '' === $title ) {
+					/* translators: %d: post ID */
+					$title = sprintf( __( '(no title) #%d', 'open-builder' ), $p->ID );
+				}
+				/* translators: 1: post type label, 2: post title */
+				$out[ (int) $p->ID ] = sprintf( __( '%1$s: %2$s', 'open-builder' ), $type_label, $title );
+			}
+		};
+
+		$pt_objects = get_post_types( [ 'public' => true ], 'objects' );
+
+		// Pages: include all (capped high); most sites have few.
+		if ( isset( $pt_objects['page'] ) ) {
+			$add(
+				get_posts( [ 'post_type' => 'page', 'post_status' => 'publish', 'numberposts' => 300, 'orderby' => 'title', 'order' => 'ASC', 'suppress_filters' => false ] ),
+				$pt_objects['page']->labels->singular_name
+			);
+		}
+
+		// Other public types (posts + CPTs): recent entries only.
+		foreach ( $pt_objects as $pt ) {
+			if ( 'page' === $pt->name || 'attachment' === $pt->name ) {
+				continue;
+			}
+			$add(
+				get_posts( [ 'post_type' => $pt->name, 'post_status' => 'publish', 'numberposts' => 100, 'orderby' => 'date', 'order' => 'DESC', 'suppress_filters' => false ] ),
+				$pt->labels->singular_name
+			);
+		}
+
+		return $out;
 	}
 
 	public function save( int $post_id, \WP_Post $post ): void {
@@ -245,6 +311,9 @@ class Theme_Builder {
 
 	/** Weight of a rule for specificity (higher beats lower). */
 	private function rule_weight( string $rule ): int {
+		if ( 0 === strpos( $rule, 'post:' ) ) {
+			return 50; // A specific page/post is the most specific target.
+		}
 		if ( 0 === strpos( $rule, 'singular:' ) ) {
 			return 30;
 		}
@@ -288,6 +357,9 @@ class Theme_Builder {
 		}
 		if ( 'any_single' === $rule ) {
 			return is_singular();
+		}
+		if ( 0 === strpos( $rule, 'post:' ) ) {
+			return is_singular() && (int) substr( $rule, 5 ) === (int) get_queried_object_id();
 		}
 		if ( 0 === strpos( $rule, 'singular:' ) ) {
 			return is_singular( substr( $rule, 9 ) );

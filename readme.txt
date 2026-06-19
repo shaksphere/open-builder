@@ -4,7 +4,7 @@ Tags: page builder, visual builder, drag and drop, editor, landing page
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.11.0
+Stable tag: 1.12.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,9 @@ As a sanitized JSON tree in post meta (`_openb_tree`), with compiled CSS cached
 in `_openb_compiled_css`.
 
 == Changelog ==
+
+= 1.12.0 =
+* Display conditions can now target a specific page or post, not just a whole post type. The condition dropdown lists your individual pages (and recent posts/CPT entries) as "Page: About", "Post: Hello world", etc., so a header/footer/template or popup can be assigned to exactly one page. A specific-page rule is treated as the most specific match.
 
 = 1.11.0 =
 * Important fix: Open Builder no longer alters pages it didn't build. Previously a site-wide header/footer template would take over the whole site — including pages built with your theme or another builder (e.g. Elementor) — and could change their layout. Now the theme-template takeover only applies to pages built with Open Builder, plus archive/search/404 pages that have a matching template.
