@@ -4,7 +4,7 @@ Tags: page builder, visual builder, drag and drop, editor, landing page
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.9.0
+Stable tag: 1.10.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -26,6 +26,7 @@ Features:
 * Theme builder: design Headers, Footers, Single, Archive, Search and 404 templates and assign them with display conditions.
 * Popups: design popups visually with triggers (load, exit-intent, scroll, click, inactivity), display conditions, frequency capping and an accessible front-end dialog.
 * Dynamic widgets: Post Title, Post Content, Site Logo, Nav Menu, and a Posts loop for archives/blogs.
+* Dynamic data binding: bind any text/link/image control to post fields, custom fields (post meta), ACF, or site data, with a fallback.
 * Per-breakpoint responsive style controls (desktop / tablet / mobile).
 * Global brand settings (colors, fonts, sizes) exposed as CSS variables.
 * Form builder with database storage, email notifications, spam honeypot, and an admin entries viewer.
@@ -58,6 +59,11 @@ As a sanitized JSON tree in post meta (`_openb_tree`), with compiled CSS cached
 in `_openb_compiled_css`.
 
 == Changelog ==
+
+= 1.10.0 =
+* Dynamic data binding: bind any text, link or image control to live data — Post Title, Excerpt, Content, Date, URL, Featured Image, Author, Site title/tagline/URL, the current year, a custom field (post meta) or an ACF field (when ACF is active).
+* Each bindable control gets a "Dynamic" toggle in the editor: pick a source, an optional field/meta key, and a fallback for when the value is empty. Bound fields show a readable placeholder (e.g. [Post Title]) on the canvas and resolve to real data on the front end.
+* Works anywhere the builder renders — pages, posts, and theme-builder templates (header/footer/single/archive) — so you can design one template that adapts per post.
 
 = 1.9.0 =
 * Popups: design a popup visually with Open Builder, then choose a trigger — on load (after a delay), exit-intent, scroll depth %, click a CSS selector, or after inactivity.

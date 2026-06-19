@@ -56,6 +56,7 @@ final class Plugin {
 		require_once $includes . 'class-render-context.php';
 		require_once $includes . 'class-global-styles.php';
 		require_once $includes . 'class-widgets.php';
+		require_once $includes . 'class-dynamic-tags.php';
 		require_once $includes . 'class-css-generator.php';
 		require_once $includes . 'class-renderer.php';
 		require_once $includes . 'class-css-store.php';

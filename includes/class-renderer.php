@@ -42,6 +42,13 @@ class Renderer {
 		$content  = $node['settings']['content'] ?? [];
 		$advanced = $node['settings']['advanced'] ?? [];
 
+		// Dynamic data binding: override bound content fields from the current
+		// post (live on the front end; readable placeholders in the editor).
+		$dynamic = $node['settings']['dynamic'] ?? [];
+		if ( ! empty( $dynamic ) && is_array( $dynamic ) ) {
+			$content = Dynamic_Tags::apply( $type, (array) $content, $dynamic );
+		}
+
 		$inner_html = '';
 		if ( $widget->is_container() && ! empty( $node['children'] ) ) {
 			foreach ( $node['children'] as $child ) {

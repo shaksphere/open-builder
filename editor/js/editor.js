@@ -78,7 +78,7 @@
 	function normalizeTree(nodes) {
 		(nodes || []).forEach(function (n) {
 			n.settings = (n.settings && !Array.isArray(n.settings)) ? n.settings : {};
-			['content', 'style', 'background', 'advanced'].forEach(function (k) {
+			['content', 'style', 'background', 'advanced', 'dynamic'].forEach(function (k) {
 				if (Array.isArray(n.settings[k]) || n.settings[k] == null) n.settings[k] = {};
 			});
 			['style', 'background'].forEach(function (k) {
@@ -764,11 +764,85 @@
 			var ctrl = controls[key];
 			var value = node.settings.content[key];
 			if (value === undefined) value = ctrl.default;
-			wrap.appendChild(controlField(ctrl, value, function (v) {
-				node.settings.content[key] = v;
-				markDirty(); rerender();
-			}));
+			if (isBindable(ctrl.type)) {
+				wrap.appendChild(dynamicField(node, key, ctrl, value));
+			} else {
+				wrap.appendChild(controlField(ctrl, value, function (v) {
+					node.settings.content[key] = v;
+					markDirty(); rerender();
+				}));
+			}
 		});
+		return wrap;
+	}
+
+	/* ----------------------------------------------------------------------- *
+	 * Dynamic data binding: bind a text/url/image field to a post/site source.
+	 * ----------------------------------------------------------------------- */
+	var DYNAMIC_SOURCES = Array.isArray(BOOT.dynamicSources) ? BOOT.dynamicSources : [];
+	function isBindable(type) {
+		return DYNAMIC_SOURCES.length && ['text', 'url', 'textarea', 'html', 'richtext', 'image'].indexOf(type) !== -1;
+	}
+	function sourcesForKind(isImage) {
+		return DYNAMIC_SOURCES.filter(function (s) { return isImage ? s.image : s.text; });
+	}
+	function dynamicField(node, key, ctrl, value) {
+		node.settings.dynamic = (node.settings.dynamic && !Array.isArray(node.settings.dynamic)) ? node.settings.dynamic : {};
+		var isImage = ctrl.type === 'image';
+		var dyn = node.settings.dynamic[key];
+		var wrap = el('div', { class: 'openb-dynfield' });
+
+		// Header: label + a toggle that switches this field to dynamic.
+		var toggle = el('button', {
+			class: 'openb-dynbtn' + (dyn ? ' is-active' : ''),
+			title: dyn ? 'Using dynamic data — click to use a static value' : 'Bind to dynamic data',
+			type: 'button',
+			onclick: function () {
+				if (node.settings.dynamic[key]) {
+					delete node.settings.dynamic[key];
+				} else {
+					var opts = sourcesForKind(isImage);
+					node.settings.dynamic[key] = { source: (opts[0] && opts[0].value) || 'post_title', key: '', fallback: '' };
+				}
+				markDirty(); refreshInspectorKeepScroll(); rerender();
+			}
+		}, [svgRaw('<path d="M4 7c0 1.7 3.6 3 8 3s8-1.3 8-3-3.6-3-8-3-8 1.3-8 3z"/><path d="M4 7v10c0 1.7 3.6 3 8 3s8-1.3 8-3V7"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>'), ' Dynamic']);
+
+		if (ctrl.label) {
+			wrap.appendChild(el('div', { class: 'openb-dynfield__head' }, [
+				el('label', { class: 'openb-field__label', text: ctrl.label }),
+				toggle
+			]));
+		} else {
+			wrap.appendChild(el('div', { class: 'openb-dynfield__head' }, [toggle]));
+		}
+
+		if (!dyn) {
+			// Static: the normal control (no duplicate label).
+			wrap.appendChild(controlField({ type: ctrl.type, choices: ctrl.choices, hint: ctrl.hint }, value, function (v) {
+				node.settings.content[key] = v; markDirty(); rerender();
+			}));
+			return wrap;
+		}
+
+		// Dynamic: source select (+ key when needed) + fallback.
+		var opts = sourcesForKind(isImage);
+		var choices = {};
+		opts.forEach(function (s) { choices[s.value] = s.label; });
+		wrap.appendChild(controlField({ type: 'select', label: 'Source', choices: choices }, dyn.source, function (v) {
+			dyn.source = v; markDirty(); refreshInspectorKeepScroll(); rerender();
+		}));
+		var sel = opts.filter(function (s) { return s.value === dyn.source; })[0];
+		if (sel && sel.needsKey) {
+			wrap.appendChild(controlField({ type: 'text', label: 'Field / meta key' }, dyn.key || '', function (v) {
+				dyn.key = v; markDirty(); rerender();
+			}));
+		}
+		if (!isImage) {
+			wrap.appendChild(controlField({ type: 'text', label: 'Fallback (if empty)' }, dyn.fallback || '', function (v) {
+				dyn.fallback = v; markDirty(); rerender();
+			}));
+		}
 		return wrap;
 	}
 
@@ -1814,6 +1888,10 @@
 	 * ----------------------------------------------------------------------- */
 	function svg(path) {
 		return el('span', { class: 'openb-svg', html: '<svg viewBox="0 0 20 22" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="' + path + '"/></svg>' });
+	}
+	// Like svg() but accepts raw inner SVG markup (multiple paths) on a 24×24 grid.
+	function svgRaw(inner) {
+		return el('span', { class: 'openb-svg', html: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + inner + '</svg>' });
 	}
 	function widgetIcon(name) {
 		var icons = {

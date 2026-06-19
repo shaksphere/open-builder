@@ -55,6 +55,19 @@ html, body { height: 100%; margin: 0; }
 .openb-contrast-hint:empty { display: none; }
 .openb-contrast-hint.is-fail { color: #b91c1c; }
 
+/* Dynamic data binding field */
+.openb-dynfield { margin-bottom: 12px; }
+.openb-dynfield__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.openb-dynfield__head .openb-field__label { margin: 0; }
+.openb-dynbtn {
+	display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; font-size: 11px; font-weight: 600;
+	border: 1px solid #d7dae0; border-radius: 5px; background: #f3f4f6; color: #6b7280; cursor: pointer;
+}
+.openb-dynbtn:hover { border-color: var(--ob-primary); color: var(--ob-primary); }
+.openb-dynbtn.is-active { background: var(--ob-primary); border-color: var(--ob-primary); color: #fff; }
+.openb-dynbtn .openb-svg { display: inline-flex; }
+.openb-dynfield .openb-field { margin-bottom: 8px; }
+
 /* Accessibility audit box (heading-order linter) in the Layers panel */
 .openb-audit { margin: 0 0 10px; padding: 8px 10px; border-radius: 6px; font-size: 12px; line-height: 1.45; }
 .openb-audit.is-ok { background: #ecfdf5; color: #065f46; }

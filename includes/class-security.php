@@ -139,7 +139,35 @@ class Security {
 			'style'      => $style,
 			'background' => self::sanitize_background( $settings['background'] ?? [] ),
 			'advanced'   => $advanced,
+			'dynamic'    => self::sanitize_dynamic( $settings['dynamic'] ?? [], $schema ),
 		];
+	}
+
+	/**
+	 * Sanitize the dynamic-binding map: only fields present in the widget schema,
+	 * only known sources, with a text-sanitized key and fallback.
+	 */
+	private static function sanitize_dynamic( $dynamic, array $schema ): array {
+		if ( ! is_array( $dynamic ) ) {
+			return [];
+		}
+		$out     = [];
+		$sources = Dynamic_Tags::source_keys();
+		foreach ( $dynamic as $field => $binding ) {
+			if ( ! is_array( $binding ) || ! isset( $schema[ $field ] ) ) {
+				continue;
+			}
+			$source = (string) ( $binding['source'] ?? '' );
+			if ( ! in_array( $source, $sources, true ) ) {
+				continue;
+			}
+			$out[ $field ] = [
+				'source'   => $source,
+				'key'      => sanitize_text_field( (string) ( $binding['key'] ?? '' ) ),
+				'fallback' => sanitize_text_field( (string) ( $binding['fallback'] ?? '' ) ),
+			];
+		}
+		return $out;
 	}
 
 	/**

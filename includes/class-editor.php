@@ -89,6 +89,7 @@ class Editor {
 			'canCustomJs'  => current_user_can( 'unfiltered_html' ),
 			'globalCss'    => $plugin->global_styles->get_custom_css(),
 			'seoActive'    => Frontend::seo_plugin_active(),
+			'dynamicSources' => Dynamic_Tags::sources_for_editor(),
 		];
 
 		// Make the WordPress media library available inside our custom document
