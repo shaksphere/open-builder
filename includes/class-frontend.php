@@ -34,6 +34,13 @@ class Frontend {
 		add_action( 'wp_head', [ $this, 'print_page_css' ], 21 );
 		add_action( 'wp_footer', [ $this, 'print_page_js' ], 99 );
 
+		// Site-wide custom CSS, printed on every front-end page.
+		add_action( 'wp_head', [ $this, 'print_global_custom_css' ], 22 );
+
+		// Per-page SEO meta — deferred entirely when a dedicated SEO plugin runs.
+		add_action( 'wp_head', [ $this, 'print_seo_meta' ], 1 );
+		add_filter( 'document_title_parts', [ $this, 'seo_title_parts' ] );
+
 		// Remove a post's cached CSS file when it's deleted.
 		add_action( 'before_delete_post', function ( $post_id ) {
 			Plugin::instance()->css_store->delete_page( (int) $post_id );
@@ -106,6 +113,79 @@ class Frontend {
 			return;
 		}
 		printf( "<script id=\"openb-page-js-%d\">%s</script>\n", (int) get_queried_object_id(), $page['custom_js'] );
+	}
+
+	/** Print the site-wide custom CSS (sanitized at save time) in the head. */
+	public function print_global_custom_css(): void {
+		if ( is_admin() ) {
+			return;
+		}
+		$css = Plugin::instance()->global_styles->get_custom_css();
+		if ( '' !== trim( $css ) ) {
+			printf( "<style id=\"openb-global-custom-css\">%s</style>\n", $css );
+		}
+	}
+
+	/**
+	 * Whether a dedicated SEO plugin is active. When one is, we output nothing
+	 * and let it own the document title and meta to avoid duplicate/clashing tags.
+	 */
+	public static function seo_plugin_active(): bool {
+		return defined( 'WPSEO_VERSION' )            // Yoast SEO
+			|| defined( 'RANK_MATH_VERSION' )        // Rank Math
+			|| class_exists( 'RankMath' )
+			|| defined( 'AIOSEO_VERSION' )           // All in One SEO
+			|| defined( 'SEOPRESS_VERSION' );        // SEOPress
+	}
+
+	/** SEO settings for the current singular request, or [] if none/deferred. */
+	private function current_seo(): array {
+		if ( self::seo_plugin_active() || ! is_singular() ) {
+			return [];
+		}
+		$page = Post_Types::get_page_settings( get_queried_object_id() );
+		return is_array( $page ) ? $page : [];
+	}
+
+	/** Override the document title with the per-page SEO title when set. */
+	public function seo_title_parts( $parts ) {
+		$seo = $this->current_seo();
+		if ( ! empty( $seo['seo_title'] ) && is_array( $parts ) ) {
+			$parts['title'] = $seo['seo_title'];
+		}
+		return $parts;
+	}
+
+	/** Print per-page meta description + Open Graph tags (when no SEO plugin). */
+	public function print_seo_meta(): void {
+		$seo = $this->current_seo();
+		if ( empty( $seo ) ) {
+			return;
+		}
+		$post_id     = get_queried_object_id();
+		$title       = ! empty( $seo['seo_title'] ) ? $seo['seo_title'] : get_the_title( $post_id );
+		$description = (string) ( $seo['seo_description'] ?? '' );
+		$og_image    = (string) ( $seo['seo_og_image'] ?? '' );
+		if ( '' === $og_image ) {
+			$thumb = get_the_post_thumbnail_url( $post_id, 'large' );
+			if ( $thumb ) {
+				$og_image = $thumb;
+			}
+		}
+
+		if ( '' !== $description ) {
+			printf( "<meta name=\"description\" content=\"%s\">\n", esc_attr( $description ) );
+		}
+		printf( "<meta property=\"og:type\" content=\"article\">\n" );
+		printf( "<meta property=\"og:title\" content=\"%s\">\n", esc_attr( $title ) );
+		printf( "<meta property=\"og:url\" content=\"%s\">\n", esc_url( get_permalink( $post_id ) ) );
+		if ( '' !== $description ) {
+			printf( "<meta property=\"og:description\" content=\"%s\">\n", esc_attr( $description ) );
+		}
+		if ( '' !== $og_image ) {
+			printf( "<meta property=\"og:image\" content=\"%s\">\n", esc_url( $og_image ) );
+			printf( "<meta name=\"twitter:card\" content=\"summary_large_image\">\n" );
+		}
 	}
 
 	public function enqueue(): void {

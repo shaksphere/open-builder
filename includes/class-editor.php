@@ -87,6 +87,8 @@ class Editor {
 			'isTemplate'   => ( Post_Types::CPT_TEMPLATE === get_post_type( $post_id ) ),
 			'pageSettings' => Post_Types::get_page_settings( $post_id ),
 			'canCustomJs'  => current_user_can( 'unfiltered_html' ),
+			'globalCss'    => $plugin->global_styles->get_custom_css(),
+			'seoActive'    => Frontend::seo_plugin_active(),
 		];
 
 		// Make the WordPress media library available inside our custom document
@@ -208,6 +210,7 @@ class Editor {
 	<meta name="robots" content="noindex,nofollow">
 	<link rel="stylesheet" href="<?php echo esc_url( $frontend_css ); ?>">
 	<style id="openb-dynamic-css"><?php echo $css; // Compiled from sanitized values. ?></style>
+	<style id="openb-global-custom-css"><?php echo $plugin->global_styles->get_custom_css(); // Sanitized at save time. ?></style>
 	<style>
 		.openb-canvas-empty{padding:80px 20px;text-align:center;color:#9ca3af;font-family:system-ui,sans-serif;border:2px dashed #e4e6eb;border-radius:8px;margin:20px;}
 		.openb-editable{position:relative;cursor:pointer;outline:1px solid transparent;transition:outline-color .1s;}

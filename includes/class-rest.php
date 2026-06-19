@@ -156,10 +156,14 @@ class Rest {
 		}
 		$saved = $this->globals->save( is_array( $incoming ) ? $incoming : [] );
 
+		// Site-wide custom CSS (sanitized). Optional.
+		$custom_css = $request->get_param( 'custom_css' );
+		$saved_css  = is_string( $custom_css ) ? $this->globals->save_custom_css( $custom_css ) : $this->globals->get_custom_css();
+
 		// Brand variables live in the shared global file — rebuild it once.
 		Plugin::instance()->css_store->rebuild_global();
 
-		return new \WP_REST_Response( [ 'success' => true, 'styles' => $saved, 'css' => $this->globals->to_css() ], 200 );
+		return new \WP_REST_Response( [ 'success' => true, 'styles' => $saved, 'css' => $this->globals->to_css(), 'custom_css' => $saved_css ], 200 );
 	}
 
 	/**

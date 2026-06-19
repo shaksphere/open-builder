@@ -151,6 +151,31 @@ body.openb-built { overflow-x: hidden; }
 /* Editor placeholders for dynamic widgets */
 .ob-dynamic { outline: 1px dashed rgba(37,99,235,.4); outline-offset: 2px; }
 
+/* ----- Accessibility ----- */
+/* Skip link: hidden until focused (theme-builder takeover documents). */
+.openb-skip-link {
+	position: absolute; left: -9999px; top: 0; z-index: 100000;
+	padding: 12px 20px; background: var(--ob-color-primary, #2563eb); color: #fff;
+	border-radius: 0 0 6px 0; text-decoration: none; font: 600 14px/1 system-ui, sans-serif;
+}
+.openb-skip-link:focus { left: 0; }
+.openb-site-main:focus { outline: none; }
+
+/* Visible keyboard focus for interactive builder elements. */
+.ob-root a:focus-visible,
+.ob-button:focus-visible,
+.ob-form input:focus-visible,
+.ob-form textarea:focus-visible,
+.ob-accordion__header:focus-visible,
+.ob-tabs__tab:focus-visible,
+.ob-social__link:focus-visible,
+.ob-nav a:focus-visible,
+.openb-skip-link:focus-visible {
+	outline: 3px solid var(--ob-color-primary, #2563eb);
+	outline-offset: 2px;
+	border-radius: 2px;
+}
+
 /* Page-settings layouts (best-effort across themes) */
 /* Boxed layout: keep builder content inside the theme column (no full-bleed). */
 .openb-layout-boxed .ob-root { position: static; left: auto; width: 100%; max-width: var(--ob-container, 1140px); margin-left: auto; margin-right: auto; }

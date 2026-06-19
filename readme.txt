@@ -4,7 +4,7 @@ Tags: page builder, visual builder, drag and drop, editor, landing page
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.7.1
+Stable tag: 1.8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -57,6 +57,11 @@ As a sanitized JSON tree in post meta (`_openb_tree`), with compiled CSS cached
 in `_openb_compiled_css`.
 
 == Changelog ==
+
+= 1.8.0 =
+* Globals: site-wide custom CSS box (Globals panel) — sanitized on save and printed on every front-end page, with a live preview in the editor canvas.
+* SEO: per-page meta title, meta description and social/OG image fields in Page Settings, output in the document head. Open Builder automatically defers to Yoast, Rank Math, All in One SEO or SEOPress when one is active, so there are no duplicate tags.
+* Accessibility: alt-text prompt on the Image widget; a heading-order linter in the Layers panel (flags a missing/duplicate H1 and skipped levels); a WCAG color-contrast hint on every color control; a "Skip to content" link and visible keyboard focus (:focus-visible) styles on the front end.
 
 = 1.7.1 =
 * Fix: builder text now renders with the same fonts and heading sizes in the editor and on the front end (true WYSIWYG). Builder content (.ob-root) gets an explicit typographic baseline using the brand fonts, instead of inheriting the browser default in the editor's bare canvas and the theme's fonts on the front end. Heading sizes use em so the per-element Font Size control still scales them, and no direct color is set so the Text Color control keeps working.

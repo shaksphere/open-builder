@@ -10,7 +10,19 @@ defined( 'ABSPATH' ) || exit;
  */
 class Global_Styles {
 
-	const OPTION = 'openb_global_styles';
+	const OPTION     = 'openb_global_styles';
+	const OPTION_CSS = 'openb_custom_css';
+
+	/** Site-wide custom CSS (sanitized on save), printed on every front-end page. */
+	public function get_custom_css(): string {
+		return (string) get_option( self::OPTION_CSS, '' );
+	}
+
+	public function save_custom_css( string $css ): string {
+		$clean = Security::sanitize_custom_css( $css );
+		update_option( self::OPTION_CSS, $clean, false );
+		return $clean;
+	}
 
 	public function get(): array {
 		$defaults = $this->defaults();

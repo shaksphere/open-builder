@@ -35,6 +35,10 @@ class Security {
 			'custom_css'   => self::sanitize_custom_css( (string) ( $in['custom_css'] ?? '' ) ),
 			'custom_js'    => '',
 			'js_allowed'   => false,
+			// SEO helpers (output in <head> only when no SEO plugin is active).
+			'seo_title'       => sanitize_text_field( (string) ( $in['seo_title'] ?? '' ) ),
+			'seo_description' => sanitize_textarea_field( (string) ( $in['seo_description'] ?? '' ) ),
+			'seo_og_image'    => esc_url_raw( (string) ( $in['seo_og_image'] ?? '' ) ),
 		];
 
 		// Custom JS is only stored (and later emitted) for capable users.

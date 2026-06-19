@@ -31,11 +31,13 @@ $body_type = (string) ( $tb['body_type'] ?? '' );
 <body <?php body_class( 'openb-themeless' ); ?>>
 <?php wp_body_open(); ?>
 
+<a class="openb-skip-link" href="#openb-content"><?php esc_html_e( 'Skip to content', 'open-builder' ); ?></a>
+
 <?php if ( $header_id ) : ?>
 	<header class="openb-site-header"><?php echo Theme_Builder::render_template( $header_id ); // Trusted renderer. ?></header>
 <?php endif; ?>
 
-<main class="openb-site-main" id="openb-content">
+<main class="openb-site-main" id="openb-content" tabindex="-1">
 	<?php
 	if ( $body_id ) {
 		// A body template is assigned: render it. Dynamic widgets inside it

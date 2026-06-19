@@ -23,6 +23,7 @@ class Widget_Image extends Abstract_Widget {
 				'label'   => __( 'Alt Text', 'open-builder' ),
 				'default' => '',
 				'group'   => 'content',
+				'hint'    => __( 'Describe the image for screen readers and SEO. Leave empty only if the image is purely decorative.', 'open-builder' ),
 			],
 			'link' => [
 				'type'    => 'url',

@@ -57,6 +57,7 @@
 	var state = {
 		tree: normalizeTree(Array.isArray(BOOT.tree) ? BOOT.tree : []),
 		globals: BOOT.globals || { colors: [], fonts: [], sizes: [] },
+		globalCss: typeof BOOT.globalCss === 'string' ? BOOT.globalCss : '',
 		pageSettings: BOOT.pageSettings && typeof BOOT.pageSettings === 'object' ? BOOT.pageSettings : {},
 		title: BOOT.postTitle || '',
 		clipboard: loadClipboard(),
@@ -836,6 +837,7 @@
 				input.addEventListener('input', function () { onChange(input.value); });
 		}
 		field.appendChild(input);
+		if (ctrl.hint) field.appendChild(el('p', { class: 'openb-hint', text: ctrl.hint }));
 		return field;
 	}
 
@@ -844,18 +846,62 @@
 		var swatchVal = value || '';
 		var text = el('input', { class: 'openb-input', type: 'text', placeholder: '#000000 or var(--ob-color-primary)' });
 		text.value = swatchVal;
-		text.addEventListener('input', function () { onChange(text.value); });
+		var hint = el('p', { class: 'openb-contrast-hint' });
+		function update() { onChange(text.value); paintContrast(hint, text.value); }
+		text.addEventListener('input', update);
 		// Brand color swatches.
 		var swatches = el('div', { class: 'openb-swatches' });
 		(state.globals.colors || []).forEach(function (c) {
 			swatches.appendChild(el('button', {
 				class: 'openb-swatch', title: c.name, style: 'background:' + c.value,
-				onclick: function () { text.value = 'var(--ob-color-' + c.id + ')'; onChange(text.value); }
+				onclick: function () { text.value = 'var(--ob-color-' + c.id + ')'; update(); }
 			}));
 		});
 		wrap.appendChild(text);
 		wrap.appendChild(swatches);
+		wrap.appendChild(hint);
+		paintContrast(hint, swatchVal);
 		return wrap;
+	}
+
+	/* Color-contrast hint (WCAG). Resolves #hex and brand var() values, then
+	   shows the contrast ratio against white and black so authors can sanity-check
+	   legibility. AA for normal text is 4.5:1. */
+	function resolveColorHex(value) {
+		value = (value || '').trim();
+		if (!value) return null;
+		var m = value.match(/^var\(\s*--ob-color-([a-z0-9_-]+)\s*\)$/i);
+		if (m) {
+			var found = (state.globals.colors || []).filter(function (c) { return c.id === m[1]; })[0];
+			value = found ? found.value : '';
+		}
+		return parseHex(value);
+	}
+	function parseHex(v) {
+		v = (v || '').trim();
+		var m = v.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+		if (!m) return null;
+		var h = m[1];
+		if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+		return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+	}
+	function relLum(rgb) {
+		var a = rgb.map(function (v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+		return 0.2126 * a[0] + 0.7152 * a[1] + 0.0722 * a[2];
+	}
+	function contrastRatio(rgb1, rgb2) {
+		var l1 = relLum(rgb1), l2 = relLum(rgb2);
+		var hi = Math.max(l1, l2), lo = Math.min(l1, l2);
+		return (hi + 0.05) / (lo + 0.05);
+	}
+	function paintContrast(node, value) {
+		var rgb = resolveColorHex(value);
+		if (!rgb) { node.textContent = ''; return; }
+		var white = contrastRatio(rgb, [255, 255, 255]);
+		var black = contrastRatio(rgb, [0, 0, 0]);
+		function tag(label, r) { return label + ' ' + r.toFixed(1) + ':1 ' + (r >= 4.5 ? '✓' : '✗'); }
+		node.textContent = 'Contrast — ' + tag('on white', white) + ' · ' + tag('on black', black);
+		node.className = 'openb-contrast-hint' + ((white >= 4.5 || black >= 4.5) ? '' : ' is-fail');
 	}
 
 	function imageControl(value, onChange) {
@@ -1346,7 +1392,47 @@
 			pane.appendChild(el('p', { class: 'openb-hint', text: 'No elements yet.' }));
 			return;
 		}
+		pane.appendChild(buildHeadingAudit());
 		pane.appendChild(buildLayerList(state.tree, 0));
+	}
+
+	/* Accessibility: heading-order linter. Walks headings in document order and
+	   flags a missing/duplicate H1 and skipped levels (e.g. H2 → H4). */
+	function collectHeadings(nodes, out) {
+		(nodes || []).forEach(function (n) {
+			if (n.type === 'heading') {
+				var tag = (n.settings && n.settings.content && n.settings.content.tag) || 'h2';
+				var lvl = parseInt(String(tag).replace(/[^0-9]/g, ''), 10);
+				if (lvl >= 1 && lvl <= 6) out.push({ id: n.id, level: lvl });
+			}
+			if (n.children && n.children.length) collectHeadings(n.children, out);
+		});
+		return out;
+	}
+	function auditHeadings() {
+		var hs = collectHeadings(state.tree, []);
+		var issues = [];
+		if (hs.length) {
+			var h1s = hs.filter(function (h) { return h.level === 1; }).length;
+			if (h1s === 0) issues.push('No H1 on the page — add one top-level heading.');
+			if (h1s > 1) issues.push('Multiple H1s (' + h1s + ') — use a single H1 per page.');
+			var prev = 0;
+			hs.forEach(function (h) {
+				if (prev && h.level > prev + 1) issues.push('Heading jumps from H' + prev + ' to H' + h.level + ' — don’t skip levels.');
+				prev = h.level;
+			});
+		}
+		return { count: hs.length, issues: issues };
+	}
+	function buildHeadingAudit() {
+		var a = auditHeadings();
+		if (!a.count) return el('span');
+		if (!a.issues.length) {
+			return el('div', { class: 'openb-audit is-ok' }, [el('span', { text: '✓ Heading order looks good (' + a.count + ').' })]);
+		}
+		var box = el('div', { class: 'openb-audit is-warn' }, [el('div', { class: 'openb-audit__title', text: '⚠ Heading order' })]);
+		a.issues.forEach(function (msg) { box.appendChild(el('div', { class: 'openb-audit__item', text: msg })); });
+		return box;
 	}
 	function buildLayerList(nodes, depth) {
 		var ul = el('div', { class: 'openb-layers' });
@@ -1445,11 +1531,29 @@
 			});
 		});
 
+		// Site-wide custom CSS.
+		pane.appendChild(el('div', { class: 'openb-widgetcat', text: 'Custom CSS (site-wide)' }));
+		var cssArea = el('textarea', { class: 'openb-input', rows: 8, spellcheck: 'false', placeholder: '/* Applies to every page on the site */' });
+		cssArea.value = state.globalCss || '';
+		cssArea.addEventListener('input', function () { state.globalCss = cssArea.value; });
+		pane.appendChild(el('div', { class: 'openb-field' }, [cssArea]));
+		pane.appendChild(el('p', { class: 'openb-hint', text: 'Printed on every front-end page. Sanitized on save (no @import, url() or behaviour hacks).' }));
+
 		pane.appendChild(el('button', { class: 'openb-btn openb-btn--primary openb-btn--block', text: 'Save Brand Settings', onclick: saveGlobals }));
 	}
 	function saveGlobals() {
-		api('/global-styles', { styles: state.globals }).then(function (res) {
-			if (res.ok) { toast('Brand settings saved'); renderCanvas(); }
+		api('/global-styles', { styles: state.globals, custom_css: state.globalCss }).then(function (res) {
+			if (res.ok) {
+				toast('Brand settings saved');
+				if (res.data && typeof res.data.custom_css === 'string') state.globalCss = res.data.custom_css;
+				// Reflect site-wide CSS live in the canvas.
+				var doc = canvasDoc();
+				if (doc) {
+					var node = doc.getElementById('openb-global-custom-css');
+					if (node) node.textContent = state.globalCss;
+				}
+				renderCanvas();
+			}
 			else toast('Could not save brand settings', true);
 		});
 	}
@@ -1644,6 +1748,17 @@
 		body.appendChild(el('div', { class: 'openb-stylegroup__title', text: 'Custom CSS (page)' }));
 		body.appendChild(controlField({ type: 'textarea', label: '' }, ps.custom_css || '', function (v) { ps.custom_css = v; markDirty(); }));
 		body.appendChild(el('p', { class: 'openb-hint', text: 'Applies to this page only. Use normal CSS selectors.' }));
+
+		// SEO — meta title/description + OG image. Defers to a real SEO plugin.
+		body.appendChild(el('div', { class: 'openb-stylegroup__title', text: 'SEO' }));
+		if (BOOT.seoActive) {
+			body.appendChild(el('p', { class: 'openb-hint', text: 'An SEO plugin (Yoast / Rank Math / AIOSEO / SEOPress) is active, so Open Builder defers to it — set meta there. These fields are ignored while it is active.' }));
+		}
+		body.appendChild(controlField({ type: 'text', label: 'Meta Title' }, ps.seo_title || '', function (v) { ps.seo_title = v; markDirty(); }));
+		body.appendChild(controlField({ type: 'textarea', label: 'Meta Description' }, ps.seo_description || '', function (v) { ps.seo_description = v; markDirty(); }));
+		body.appendChild(el('p', { class: 'openb-hint', text: 'Aim for ~50–60 characters for the title and ~150–160 for the description.' }));
+		body.appendChild(el('label', { class: 'openb-field__label', text: 'Social Share Image (OG)' }));
+		body.appendChild(controlField({ type: 'image', label: '' }, ps.seo_og_image ? { id: 0, url: ps.seo_og_image } : { id: 0, url: '' }, function (v) { ps.seo_og_image = (v && v.url) ? v.url : ''; markDirty(); }));
 
 		if (BOOT.canCustomJs) {
 			body.appendChild(el('div', { class: 'openb-stylegroup__title', text: 'Custom JS (page)' }));
