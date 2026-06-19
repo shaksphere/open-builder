@@ -4,7 +4,7 @@ Tags: page builder, visual builder, drag and drop, editor, landing page
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.8.0
+Stable tag: 1.9.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -24,6 +24,7 @@ Features:
 * Live drag-and-drop editor with a real-time, server-rendered canvas (true WYSIWYG).
 * 29 widgets across Layout, Basic, Media, Marketing, Interactive, Dynamic and Advanced groups — including Video, Gallery, Accordion, Tabs, Counter, Progress Bar, Testimonial, Star Rating, Icon Box, Icon List, Social Icons and Google Map.
 * Theme builder: design Headers, Footers, Single, Archive, Search and 404 templates and assign them with display conditions.
+* Popups: design popups visually with triggers (load, exit-intent, scroll, click, inactivity), display conditions, frequency capping and an accessible front-end dialog.
 * Dynamic widgets: Post Title, Post Content, Site Logo, Nav Menu, and a Posts loop for archives/blogs.
 * Per-breakpoint responsive style controls (desktop / tablet / mobile).
 * Global brand settings (colors, fonts, sizes) exposed as CSS variables.
@@ -57,6 +58,12 @@ As a sanitized JSON tree in post meta (`_openb_tree`), with compiled CSS cached
 in `_openb_compiled_css`.
 
 == Changelog ==
+
+= 1.9.0 =
+* Popups: design a popup visually with Open Builder, then choose a trigger — on load (after a delay), exit-intent, scroll depth %, click a CSS selector, or after inactivity.
+* Assign popups with the same display-conditions engine as the theme builder (include/exclude rules), and cap how often they show (every view / once per session / once every N days).
+* Accessible front end: popups render as ARIA dialogs with a focus trap, ESC to close, overlay-click and close button, background scroll lock, and reduced-motion support.
+* Admin: a Popups list under the Open Builder menu and a Popups section on the dashboard; trigger, conditions, appearance and frequency are set on the popup edit screen.
 
 = 1.8.0 =
 * Globals: site-wide custom CSS box (Globals panel) — sanitized on save and printed on every front-end page, with a live preview in the editor canvas.

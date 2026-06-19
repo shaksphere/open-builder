@@ -32,6 +32,9 @@ final class Plugin {
 	/** @var Theme_Builder */
 	public $theme_builder;
 
+	/** @var Popups */
+	public $popups;
+
 	/** @var Css_Store */
 	public $css_store;
 
@@ -59,6 +62,7 @@ final class Plugin {
 		require_once $includes . 'class-forms.php';
 		require_once $includes . 'class-rest.php';
 		require_once $includes . 'class-theme-builder.php';
+		require_once $includes . 'class-popups.php';
 		require_once $includes . 'class-editor.php';
 		require_once $includes . 'class-frontend.php';
 		require_once $includes . 'class-admin.php';
@@ -81,6 +85,9 @@ final class Plugin {
 
 		$this->theme_builder = new Theme_Builder();
 		$this->theme_builder->register_hooks();
+
+		$this->popups = new Popups();
+		$this->popups->register_hooks();
 
 		( new Editor() )->register_hooks();
 		( new Frontend( $this->renderer ) )->register_hooks();

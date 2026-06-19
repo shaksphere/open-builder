@@ -391,6 +391,20 @@ class Security {
 		return implode( ' ', $parts );
 	}
 
+	/**
+	 * Sanitize a CSS selector used as a JS click-trigger target. Restricted to a
+	 * safe character set (class/id/attribute/combinator syntax) and length; the
+	 * value is only ever passed to querySelectorAll and printed via esc_attr.
+	 */
+	public static function sanitize_selector( string $selector ): string {
+		$selector = trim( $selector );
+		if ( '' === $selector ) {
+			return '';
+		}
+		$selector = preg_replace( '/[^a-zA-Z0-9 ._#,>:+~\[\]="\'\-()*]/', '', $selector );
+		return substr( (string) $selector, 0, 200 );
+	}
+
 	public static function sanitize_id( $id ): string {
 		$id = preg_replace( '/[^a-zA-Z0-9_\-]/', '', (string) $id );
 		return $id !== '' ? $id : self::generate_id();

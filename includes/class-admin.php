@@ -50,6 +50,14 @@ class Admin {
 
 		add_submenu_page(
 			'open-builder',
+			__( 'Popups', 'open-builder' ),
+			__( 'Popups', 'open-builder' ),
+			'edit_pages',
+			'edit.php?post_type=' . Post_Types::CPT_POPUP
+		);
+
+		add_submenu_page(
+			'open-builder',
 			__( 'Form Entries', 'open-builder' ),
 			__( 'Form Entries', 'open-builder' ),
 			'edit_pages',
@@ -104,6 +112,33 @@ class Admin {
 					esc_html__( 'Edit', 'open-builder' ),
 					esc_url( get_edit_post_link( $tpl->ID ) ),
 					esc_html__( 'Conditions', 'open-builder' )
+				);
+			}
+			echo '</tbody></table>';
+		}
+
+		// Popups section.
+		echo '<h2>' . esc_html__( 'Popups', 'open-builder' ) . '</h2>';
+		echo '<p>' . esc_html__( 'Design popups, choose a trigger (load, exit-intent, scroll, click or inactivity), and assign them with display conditions.', 'open-builder' ) . '</p>';
+		echo '<p>';
+		printf( '<a class="button button-primary" href="%s">%s</a> ', esc_url( admin_url( 'post-new.php?post_type=' . Post_Types::CPT_POPUP ) ), esc_html__( 'New Popup', 'open-builder' ) );
+		printf( '<a class="button" href="%s">%s</a>', esc_url( admin_url( 'edit.php?post_type=' . Post_Types::CPT_POPUP ) ), esc_html__( 'All Popups', 'open-builder' ) );
+		echo '</p>';
+
+		$popups = get_posts( [ 'post_type' => Post_Types::CPT_POPUP, 'numberposts' => 50 ] );
+		if ( $popups ) {
+			$tt = Popups::trigger_types();
+			echo '<table class="widefat striped" style="max-width:760px"><thead><tr><th>' . esc_html__( 'Popup', 'open-builder' ) . '</th><th>' . esc_html__( 'Trigger', 'open-builder' ) . '</th><th></th></tr></thead><tbody>';
+			foreach ( $popups as $pp ) {
+				$trig = Popups::get_trigger( $pp->ID );
+				printf(
+					'<tr><td><strong>%s</strong></td><td>%s</td><td><a class="button button-small button-primary" href="%s">%s</a> <a class="button button-small" href="%s">%s</a></td></tr>',
+					esc_html( get_the_title( $pp ) ),
+					esc_html( $tt[ $trig['type'] ] ?? $trig['type'] ),
+					esc_url( Editor::edit_url( $pp->ID ) ),
+					esc_html__( 'Design', 'open-builder' ),
+					esc_url( get_edit_post_link( $pp->ID ) ),
+					esc_html__( 'Settings', 'open-builder' )
 				);
 			}
 			echo '</tbody></table>';

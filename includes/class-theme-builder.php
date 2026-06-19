@@ -73,7 +73,17 @@ class Theme_Builder {
 	}
 
 	public function render_conditions_box( \WP_Post $post ): void {
-		$conditions = self::get_conditions( $post->ID );
+		self::render_conditions_ui( $post->ID );
+	}
+
+	/**
+	 * Render the include/exclude display-conditions UI (table + add/remove JS).
+	 * Shared by the template and popup edit screens. The caller is responsible
+	 * for the surrounding metabox and its nonce; this only emits the rows for the
+	 * `openb_conditions[]` field, read back by save_conditions_from_post().
+	 */
+	public static function render_conditions_ui( int $post_id ): void {
+		$conditions = self::get_conditions( $post_id );
 		if ( empty( $conditions ) ) {
 			$conditions = [ [ 'relation' => 'include', 'rule' => 'entire_site' ] ];
 		}
@@ -165,7 +175,15 @@ class Theme_Builder {
 		}
 		update_post_meta( $post_id, self::META_TYPE, $type );
 
-		$conditions = [];
+		self::save_conditions_from_post( $post_id );
+	}
+
+	/**
+	 * Read, sanitize and store the `openb_conditions[]` POST field. Shared by the
+	 * template and popup save handlers (each guards its own nonce/cap first).
+	 */
+	public static function save_conditions_from_post( int $post_id ): void {
+		$conditions  = [];
 		$valid_rules = array_keys( self::rule_choices() );
 		if ( ! empty( $_POST['openb_conditions'] ) && is_array( $_POST['openb_conditions'] ) ) {
 			foreach ( wp_unslash( $_POST['openb_conditions'] ) as $cond ) {
@@ -186,6 +204,28 @@ class Theme_Builder {
 	public static function get_conditions( int $post_id ): array {
 		$c = get_post_meta( $post_id, self::META_CONDITIONS, true );
 		return is_array( $c ) ? $c : [];
+	}
+
+	/**
+	 * Evaluate a set of include/exclude conditions against the current request.
+	 * Any matching exclude wins; otherwise at least one include must match.
+	 * Public so the popup loader can reuse the same engine as templates.
+	 */
+	public function conditions_match( array $conditions ): bool {
+		if ( empty( $conditions ) ) {
+			return false;
+		}
+		$included = false;
+		foreach ( $conditions as $cond ) {
+			if ( empty( $cond['rule'] ) || ! $this->rule_matches( $cond['rule'] ) ) {
+				continue;
+			}
+			if ( 'exclude' === ( $cond['relation'] ?? 'include' ) ) {
+				return false;
+			}
+			$included = true;
+		}
+		return $included;
 	}
 
 	/* --------------------------------------------------------------------- *

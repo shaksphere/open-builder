@@ -84,7 +84,7 @@ class Editor {
 			'tree'         => $tree,
 			'icons'        => Widget_Icon::set(),
 			'canManage'    => Security::can_manage(),
-			'isTemplate'   => ( Post_Types::CPT_TEMPLATE === get_post_type( $post_id ) ),
+			'isTemplate'   => self::is_chromeless( $post_id ),
 			'pageSettings' => Post_Types::get_page_settings( $post_id ),
 			'canCustomJs'  => current_user_can( 'unfiltered_html' ),
 			'globalCss'    => $plugin->global_styles->get_custom_css(),
@@ -141,6 +141,11 @@ class Editor {
 	 *
 	 * @return array{header:int,footer:int}
 	 */
+	/** Post types edited bare in the builder (no theme header/footer chrome). */
+	private static function is_chromeless( int $post_id ): bool {
+		return in_array( get_post_type( $post_id ), [ Post_Types::CPT_TEMPLATE, Post_Types::CPT_POPUP ], true );
+	}
+
 	private function resolve_chrome_for( int $post_id ): array {
 		$tb = Plugin::instance()->theme_builder;
 		if ( ! $tb ) {
@@ -189,7 +194,7 @@ class Editor {
 		$html   = $plugin->renderer->render_tree( $tree );
 		$css    = $plugin->renderer->compile_css( $tree, $plugin->global_styles );
 
-		$is_template  = ( Post_Types::CPT_TEMPLATE === get_post_type( $post_id ) );
+		$is_template  = self::is_chromeless( $post_id );
 		$chrome       = $is_template ? [ 'header' => 0, 'footer' => 0 ] : $this->resolve_chrome_for( $post_id );
 		$header_id    = (int) $chrome['header'];
 		$footer_id    = (int) $chrome['footer'];

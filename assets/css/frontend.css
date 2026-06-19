@@ -151,6 +151,32 @@ body.openb-built { overflow-x: hidden; }
 /* Editor placeholders for dynamic widgets */
 .ob-dynamic { outline: 1px dashed rgba(37,99,235,.4); outline-offset: 2px; }
 
+/* ----- Popups ----- */
+.openb-popup { position: fixed; inset: 0; z-index: 99999; display: flex; padding: 20px; }
+.openb-popup[hidden] { display: none; }
+.openb-popup--center { align-items: center; justify-content: center; }
+.openb-popup--top { align-items: flex-start; justify-content: center; }
+.openb-popup--bottom { align-items: flex-end; justify-content: center; }
+.openb-popup__overlay { position: absolute; inset: 0; background: rgba(0,0,0,.55); }
+.openb-popup__dialog {
+	position: relative; z-index: 1; width: 100%; max-height: calc(100vh - 40px); overflow: auto;
+	background: #fff; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.3);
+	animation: openb-popup-in .2s ease-out;
+}
+@keyframes openb-popup-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.openb-popup__close {
+	position: absolute; top: 8px; right: 8px; z-index: 2; width: 36px; height: 36px;
+	border: 0; border-radius: 50%; background: rgba(0,0,0,.05); color: #111; font-size: 24px; line-height: 1;
+	cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.openb-popup__close:hover { background: rgba(0,0,0,.12); }
+.openb-popup__content { padding: 4px; }
+/* Popup content must not full-bleed like page content does. */
+.openb-popup .ob-root { position: static; width: 100%; max-width: 100%; left: auto; }
+/* Prevent background scroll while a popup is open. */
+html.openb-popup-open, html.openb-popup-open body { overflow: hidden; }
+@media (prefers-reduced-motion: reduce) { .openb-popup__dialog { animation: none; } }
+
 /* ----- Accessibility ----- */
 /* Skip link: hidden until focused (theme-builder takeover documents). */
 .openb-skip-link {
