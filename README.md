@@ -19,6 +19,16 @@ integrations, this is for you.
 > [Claude Code](https://claude.com/claude-code). The commit history reflects
 > that collaboration.
 
+## Project status
+
+Open Builder is under active development. It's already usable, but I'm still
+refining the core feature set. **Once I'm happy with the base functionality, I
+plan to submit it to the official
+[WordPress.org plugin directory](https://wordpress.org/plugins/) so it can be
+installed for free, directly from the WordPress dashboard** — keeping with the
+free, no-paywall goal of the project. Until then, install it manually with the
+instructions below.
+
 ---
 
 ## Why it exists
