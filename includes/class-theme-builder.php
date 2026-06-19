@@ -14,6 +14,17 @@ class Theme_Builder {
 	const META_TYPE       = '_openb_template_type';
 	const META_CONDITIONS = '_openb_conditions';
 
+	/**
+	 * Option: when true, header/footer/templates may take over the *entire* site,
+	 * including pages built with the theme or another builder (e.g. Elementor).
+	 * Off by default so Open Builder never alters a page it didn't build.
+	 */
+	const OPTION_SITE_WIDE = 'openb_templates_site_wide';
+
+	public static function site_wide_enabled(): bool {
+		return (bool) get_option( self::OPTION_SITE_WIDE, false );
+	}
+
 	/** Template types and their human labels. */
 	public static function types(): array {
 		return [
@@ -357,13 +368,52 @@ class Theme_Builder {
 	}
 
 	/**
-	 * Take over the theme output with our canvas when a header, footer or body
-	 * template applies to this request.
+	 * Whether Open Builder should control (take over) the document for this
+	 * request. Conservative by design so the plugin never alters a page it didn't
+	 * build:
+	 *   - a singular page is owned only if it was built with Open Builder;
+	 *   - an archive/search/404 is owned only if a matching body template exists;
+	 *   - otherwise it's owned only when the site-wide option is explicitly on
+	 *     (and a header/footer/body template applies).
+	 * This is what lets Open Builder coexist with Elementor/other builders: pages
+	 * you build elsewhere are left completely untouched.
+	 */
+	public function owns_request(): bool {
+		if ( is_admin() || isset( $_GET[ Editor::QV_EDITOR ] ) || isset( $_GET[ Editor::QV_PREVIEW ] ) ) {
+			return false;
+		}
+
+		if ( is_singular() ) {
+			$qid = (int) get_queried_object_id();
+			if ( $qid && Post_Types::is_enabled( $qid ) ) {
+				return true; // Built with Open Builder.
+			}
+		} else {
+			$body_type = $this->body_type_for_request();
+			if ( $body_type && $this->resolve( $body_type ) ) {
+				return true; // Archive/search/404 with a matching body template.
+			}
+		}
+
+		// Opt-in only: let header/footer/templates apply across the whole site.
+		if ( self::site_wide_enabled() ) {
+			if ( $this->resolve( 'header' ) || $this->resolve( 'footer' ) ) {
+				return true;
+			}
+			$body_type = $this->body_type_for_request();
+			return $body_type ? (bool) $this->resolve( $body_type ) : false;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Take over the theme output with our canvas when Open Builder owns this
+	 * request and a header, footer or body template applies.
 	 */
 	public function maybe_take_over( string $template ): string {
-		// Don't interfere with our own editor/preview routes or the admin.
-		if ( is_admin() || isset( $_GET[ Editor::QV_EDITOR ] ) || isset( $_GET[ Editor::QV_PREVIEW ] ) ) {
-			return $template;
+		if ( ! $this->owns_request() ) {
+			return $template; // Never touch a page Open Builder didn't build.
 		}
 
 		$header = $this->resolve( 'header' );
@@ -372,7 +422,9 @@ class Theme_Builder {
 		$body = $body_type ? $this->resolve( $body_type ) : 0;
 
 		if ( ! $header && ! $footer && ! $body ) {
-			return $template; // Nothing applies — leave the theme alone.
+			// Owned (an Open Builder page) but no chrome templates apply — let the
+			// theme render its header/footer; the_content filter renders our tree.
+			return $template;
 		}
 
 		// Stash for the canvas template.
@@ -386,9 +438,9 @@ class Theme_Builder {
 		return OPENB_DIR . 'templates/canvas.php';
 	}
 
-	/** Whether any builder template (header/footer/body) applies to this request. */
+	/** Whether the canvas takeover (and thus its assets) applies to this request. */
 	public function applies_to_request(): bool {
-		if ( is_admin() ) {
+		if ( ! $this->owns_request() ) {
 			return false;
 		}
 		if ( $this->resolve( 'header' ) || $this->resolve( 'footer' ) ) {

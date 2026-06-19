@@ -19,6 +19,21 @@ integrations, this is for you.
 > [Claude Code](https://claude.com/claude-code). The commit history reflects
 > that collaboration.
 
+> [!WARNING]
+> **Open Builder is in beta.** Please try it on a **fresh page or a staging
+> site first** — not straight on your live homepage.
+>
+> By design, Open Builder only affects pages you actually build with it. It
+> leaves pages built with your theme or another builder (e.g. Elementor)
+> untouched. Site-wide theme templates (headers/footers across every page) are
+> **opt-in** under **Open Builder → Settings** and off by default.
+>
+> If you hit any unintended effect, **deactivate the plugin** (your content is
+> safe — deactivating immediately restores your previous output) and please
+> **[open an issue on GitHub](https://github.com/shaksphere/open-builder/issues)**
+> with what you saw. Bug reports are very welcome and genuinely helpful while the
+> plugin matures.
+
 ## Project status
 
 Open Builder is under active development. It's already usable, but I'm still

@@ -16,6 +16,16 @@ class Admin {
 		add_filter( 'page_row_actions', [ $this, 'row_action' ], 10, 2 );
 		add_filter( 'post_row_actions', [ $this, 'row_action' ], 10, 2 );
 		add_action( 'admin_post_openb_flush_css', [ $this, 'handle_flush_css' ] );
+		add_action( 'admin_init', [ $this, 'register_settings' ] );
+	}
+
+	/** Register plugin settings (Settings API). */
+	public function register_settings(): void {
+		register_setting( 'openb_settings', Theme_Builder::OPTION_SITE_WIDE, [
+			'type'              => 'boolean',
+			'sanitize_callback' => 'rest_sanitize_boolean',
+			'default'           => false,
+		] );
 	}
 
 	/** Flush all cached CSS files; they lazily rebuild on next visit/save. */
@@ -64,6 +74,39 @@ class Admin {
 			'open-builder-entries',
 			[ $this, 'entries_page' ]
 		);
+
+		add_submenu_page(
+			'open-builder',
+			__( 'Settings', 'open-builder' ),
+			__( 'Settings', 'open-builder' ),
+			'manage_options',
+			'open-builder-settings',
+			[ $this, 'settings_page' ]
+		);
+	}
+
+	public function settings_page(): void {
+		echo '<div class="wrap"><h1>' . esc_html__( 'Open Builder Settings', 'open-builder' ) . '</h1>';
+		echo '<form method="post" action="options.php">';
+		settings_fields( 'openb_settings' );
+
+		$site_wide = Theme_Builder::site_wide_enabled();
+		echo '<h2>' . esc_html__( 'Theme Templates', 'open-builder' ) . '</h2>';
+		echo '<table class="form-table" role="presentation"><tbody>';
+		echo '<tr><th scope="row">' . esc_html__( 'Apply across the entire site', 'open-builder' ) . '</th><td>';
+		printf(
+			'<label><input type="checkbox" name="%s" value="1" %s> %s</label>',
+			esc_attr( Theme_Builder::OPTION_SITE_WIDE ),
+			checked( $site_wide, true, false ),
+			esc_html__( 'Let my header/footer/templates take over the whole site', 'open-builder' )
+		);
+		echo '<p class="description">' . esc_html__( 'Off (recommended): Open Builder only controls pages you build with it, plus archive/search/404 pages that have a matching template. Pages built with your theme or another builder (e.g. Elementor) are never altered.', 'open-builder' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'On (advanced): your Open Builder header/footer and templates apply to every page, replacing the output of your theme and other builders. Only enable this once your whole site is built with Open Builder.', 'open-builder' ) . '</p>';
+		echo '</td></tr>';
+		echo '</tbody></table>';
+
+		submit_button();
+		echo '</form></div>';
 	}
 
 	public function dashboard_page(): void {

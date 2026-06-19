@@ -4,7 +4,7 @@ Tags: page builder, visual builder, drag and drop, editor, landing page
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.10.0
+Stable tag: 1.11.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -18,6 +18,12 @@ of core widgets, then renders clean, fast HTML/CSS on the front end.
 
 Open Builder is independent software. It does not contain, copy, or derive from
 the code of Breakdance, Elementor, or any other commercial builder.
+
+**Beta:** Open Builder is in active development. Please try it on a fresh page or
+a staging site first. By design it only affects pages you build with it and
+leaves theme/Elementor pages untouched (site-wide theme templates are opt-in
+under Open Builder &rarr; Settings). If anything looks off, deactivate the plugin
+(your content is restored immediately) and report it on GitHub.
 
 Features:
 
@@ -59,6 +65,11 @@ As a sanitized JSON tree in post meta (`_openb_tree`), with compiled CSS cached
 in `_openb_compiled_css`.
 
 == Changelog ==
+
+= 1.11.0 =
+* Important fix: Open Builder no longer alters pages it didn't build. Previously a site-wide header/footer template would take over the whole site — including pages built with your theme or another builder (e.g. Elementor) — and could change their layout. Now the theme-template takeover only applies to pages built with Open Builder, plus archive/search/404 pages that have a matching template.
+* New: Open Builder → Settings, with a "Theme Templates" option to apply your header/footer/templates across the entire site. It is OFF by default; enable it only once your whole site is built with Open Builder.
+* This makes Open Builder safe to run alongside Elementor and other builders, and to migrate to it page by page without breaking anything.
 
 = 1.10.0 =
 * Dynamic data binding: bind any text, link or image control to live data — Post Title, Excerpt, Content, Date, URL, Featured Image, Author, Site title/tagline/URL, the current year, a custom field (post meta) or an ACF field (when ACF is active).
