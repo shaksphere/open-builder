@@ -156,6 +156,29 @@ Your page data is stored as a sanitized JSON node tree in post meta, and the
 front end is rendered by the same PHP renderer used in the editor, so what you
 design is what visitors see.
 
+## Roadmap & scope
+
+Open Builder already covers the core of what most smaller-business sites need:
+full-site design (pages, plus headers / footers / single / archive / 404
+templates with display conditions), **forms**, **popups**, **dynamic content**
+(data binding + query loops), **saved / global blocks**, a **section library**,
+**SEO** and **accessibility** helpers, **import/export**, and responsive controls
+including hide-on-device. The goal is a complete, no-paywall front-end builder for
+**full site customisation on smaller sites** — not an enterprise everything-tool.
+
+To stay lightweight, some larger or more niche capabilities are intentionally
+**not part of the core** and may arrive later as optional extras (or not at all):
+
+- **WooCommerce / e-commerce widgets** (product cards, cart, checkout, a Product
+  template type) — only useful for online stores. Parked as a possible future
+  add-on so the core stays lean for the majority who don't run a shop.
+- Entrance / scroll animations and sticky elements.
+- More form field types and actions (webhooks, redirects, autoresponders).
+- Custom breakpoints; loading only the assets a page actually uses.
+
+If one of these would be valuable to you, please open an issue — interest helps
+prioritise what's worth adding without bloating the plugin.
+
 ## Contributing
 
 Issues and pull requests are welcome. The guiding principles:
