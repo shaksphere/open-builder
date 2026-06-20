@@ -76,6 +76,9 @@ on the basics, done cleanly.
   WordPress shortcode.
 - **Widget search** in the editor panel — filter the widget list by name as you
   type.
+- **Form builder** with Text, Email, Phone, Number, Textarea, Dropdown, Radio,
+  Checkbox, Date and Hidden fields — database storage, email notifications, a
+  spam honeypot and an admin entries viewer.
 - **Visual style controls**: icon button-groups, slider + unit pickers, linked
   padding/margin box, colour popover, border/shadow builders, background
   (colour/image/gradient), per-breakpoint responsive controls.

@@ -4,7 +4,7 @@ Tags: page builder, visual builder, drag and drop, editor, landing page
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.16.0
+Stable tag: 1.17.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -28,7 +28,7 @@ under Open Builder &rarr; Settings). If anything looks off, deactivate the plugi
 Features:
 
 * Live drag-and-drop editor with a real-time, server-rendered canvas (true WYSIWYG).
-* 31 widgets across Layout, Basic, Media, Marketing, Interactive, Dynamic and Advanced groups — including Video, Gallery, Accordion, Tabs, Counter, Progress Bar, Testimonial, Star Rating, Icon Box, Icon List, Social Icons and Google Map.
+* 32 widgets across Layout, Basic, Media, Marketing, Interactive, Dynamic and Advanced groups — including Video, Gallery, Accordion, Tabs, Counter, Progress Bar, Testimonial, Star Rating, Icon Box, Icon List, Social Icons, Google Map and a Shortcode embed.
 * Theme builder: design Headers, Footers, Single, Archive, Search and 404 templates and assign them with display conditions.
 * Popups: design popups visually with triggers (load, exit-intent, scroll, click, inactivity), display conditions, frequency capping and an accessible front-end dialog.
 * Dynamic widgets: Post Title, Post Content, Site Logo, Nav Menu, and a Posts loop for archives/blogs.
@@ -66,6 +66,9 @@ As a sanitized JSON tree in post meta (`_openb_tree`), with compiled CSS cached
 in `_openb_compiled_css`.
 
 == Changelog ==
+
+= 1.17.0 =
+* Form fields: the Form widget gains Dropdown, Radio buttons, Checkboxes, Number, Date and Hidden field types (alongside Text, Email, Phone and Textarea). Choice fields take a comma-separated option list; fields can have a placeholder and a default value. Choices and required groups are validated on the server against the saved schema.
 
 = 1.16.0 =
 * Shortcode widget: drop in any registered WordPress shortcode (e.g. [open_form id="2"], contact-form-7, gallery) and it renders in place on both the front end and the editor canvas.

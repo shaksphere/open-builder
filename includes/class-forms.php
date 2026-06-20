@@ -68,21 +68,49 @@ class Forms {
 			if ( '' === $name ) {
 				continue;
 			}
-			$raw  = isset( $fields[ $name ] ) ? wp_unslash( $fields[ $name ] ) : '';
-			$type = $field['type'] ?? 'text';
+			$type    = $field['type'] ?? 'text';
+			$label   = $field['label'] ?? $name;
+			$raw     = isset( $fields[ $name ] ) ? wp_unslash( $fields[ $name ] ) : '';
+			$options = in_array( $type, Widget_Form::OPTION_TYPES, true ) ? Widget_Form::parse_options( (string) ( $field['options'] ?? '' ) ) : [];
 
-			$value = ( 'email' === $type )
-				? sanitize_email( (string) $raw )
-				: ( 'textarea' === $type ? sanitize_textarea_field( (string) $raw ) : sanitize_text_field( (string) $raw ) );
+			if ( 'checkbox' === $type ) {
+				// Multi-value. Accept only values that are declared options.
+				$picked = is_array( $raw ) ? $raw : ( '' === $raw ? [] : [ $raw ] );
+				$picked = array_values( array_intersect( array_map( 'sanitize_text_field', $picked ), $options ) );
+				if ( ! empty( $field['required'] ) && empty( $picked ) ) {
+					$missing[] = $label;
+				}
+				$clean[ $name ] = [ 'label' => $label, 'value' => implode( ', ', $picked ) ];
+				continue;
+			}
 
-			if ( ! empty( $field['required'] ) && '' === trim( (string) $value ) ) {
-				$missing[] = $field['label'] ?? $name;
+			switch ( $type ) {
+				case 'email':
+					$value = sanitize_email( (string) $raw );
+					break;
+				case 'textarea':
+					$value = sanitize_textarea_field( (string) $raw );
+					break;
+				case 'number':
+					$value = is_numeric( $raw ) ? (string) ( $raw + 0 ) : '';
+					break;
+				default:
+					$value = sanitize_text_field( (string) $raw );
+			}
+
+			// Choice fields: reject anything not in the declared option list.
+			if ( in_array( $type, [ 'select', 'radio' ], true ) && '' !== $value && ! in_array( $value, $options, true ) ) {
+				$value = '';
+			}
+
+			if ( ! empty( $field['required'] ) && '' === trim( $value ) ) {
+				$missing[] = $label;
 			}
 			if ( 'email' === $type && '' !== $value && ! is_email( $value ) ) {
-				$missing[] = $field['label'] ?? $name;
+				$missing[] = $label;
 			}
 
-			$clean[ $name ] = [ 'label' => $field['label'] ?? $name, 'value' => $value ];
+			$clean[ $name ] = [ 'label' => $label, 'value' => $value ];
 		}
 
 		if ( ! empty( $missing ) ) {

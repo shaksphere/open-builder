@@ -138,9 +138,38 @@
 
 			var fields = {};
 			Array.prototype.forEach.call(form.querySelectorAll('input, textarea, select'), function (input) {
-				if (!input.name) return;
-				fields[input.name] = input.value;
+				var name = input.name;
+				if (!name || name === 'ob_hp') return;
+				if (input.type === 'checkbox') {
+					if (!input.checked) return;
+					// Grouped checkboxes use name="key[]"; collect into an array under "key".
+					if (name.slice(-2) === '[]') {
+						var key = name.slice(0, -2);
+						(fields[key] = fields[key] || []).push(input.value);
+					} else {
+						fields[name] = input.value || '1';
+					}
+					return;
+				}
+				if (input.type === 'radio') {
+					if (input.checked) fields[name] = input.value;
+					return;
+				}
+				fields[name] = input.value;
 			});
+
+			// Client-side required check for radio/checkbox groups (HTML "required"
+			// can't span a group reliably).
+			var groupMiss = [];
+			Array.prototype.forEach.call(form.querySelectorAll('[data-ob-required="1"]'), function (group) {
+				if (!group.querySelector('input:checked')) {
+					groupMiss.push(group.getAttribute('aria-label') || 'a required field');
+				}
+			});
+			if (groupMiss.length) {
+				setMessage(messageEl, 'Please complete: ' + groupMiss.join(', '), 'error');
+				return;
+			}
 
 			form.classList.add('is-submitting');
 			setMessage(messageEl, '', '');

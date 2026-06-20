@@ -98,10 +98,15 @@ body.openb-built { overflow-x: hidden; }
 .ob-form__field { display: grid; gap: 6px; }
 .ob-form__field label { font-weight: 600; font-size: 14px; }
 .ob-form__req { color: #dc2626; }
-.ob-form input, .ob-form textarea {
-	width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font: inherit; font-size: 15px;
+.ob-form input, .ob-form textarea, .ob-form select {
+	width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font: inherit; font-size: 15px; background: #fff;
 }
-.ob-form input:focus, .ob-form textarea:focus { outline: none; border-color: var(--ob-color-primary, #2563eb); box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
+.ob-form input:focus, .ob-form textarea:focus, .ob-form select:focus { outline: none; border-color: var(--ob-color-primary, #2563eb); box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
+/* Radio / checkbox groups */
+.ob-form__grouplabel { font-weight: 600; font-size: 14px; }
+.ob-form__choices { display: grid; gap: 8px; margin-top: 2px; }
+.ob-form__choice { display: flex; align-items: center; gap: 8px; font-weight: 400; cursor: pointer; }
+.ob-form__choice input { width: auto; padding: 0; box-shadow: none; }
 .ob-form__message { font-size: 14px; }
 .ob-form__message.is-success { color: #15803d; }
 .ob-form__message.is-error { color: #b91c1c; }
