@@ -607,8 +607,16 @@
 		].filter(Boolean));
 		panel.appendChild(tabs);
 
+		var widgetSearch = el('input', {
+			class: 'openb-input openb-widgetsearch',
+			type: 'search',
+			placeholder: 'Search widgets…',
+			'aria-label': 'Search widgets'
+		});
+		widgetSearch.addEventListener('input', function () { filterWidgets(widgetSearch.value); });
 		panel.appendChild(el('div', { class: 'openb-tabpane', id: 'pane-widgets' }, [
 			el('button', { class: 'openb-btn openb-btn--primary openb-btn--block', onclick: openSectionLibrary }, ['＋ Section Library']),
+			widgetSearch,
 			buildWidgetList()
 		]));
 		panel.appendChild(el('div', { class: 'openb-tabpane', id: 'pane-layers', style: 'display:none' }));
@@ -642,11 +650,13 @@
 		});
 		var wrap = el('div', { class: 'openb-widgetlist' });
 		Object.keys(groups).forEach(function (cat) {
-			wrap.appendChild(el('div', { class: 'openb-widgetcat', text: cat }));
+			var group = el('div', { class: 'openb-widgetcat-group' });
+			group.appendChild(el('div', { class: 'openb-widgetcat', text: cat }));
 			var grid = el('div', { class: 'openb-widgetgrid' });
 			groups[cat].forEach(function (w) {
 				var item = el('div', {
 					class: 'openb-widget', draggable: 'true', title: w.title,
+					'data-search': (w.title + ' ' + w.type + ' ' + (w.category || '')).toLowerCase(),
 					onclick: function () { quickAdd(w.type); }
 				}, [
 					el('span', { class: 'openb-widget__icon', html: widgetIcon(w.icon) }),
@@ -659,9 +669,31 @@
 				});
 				grid.appendChild(item);
 			});
-			wrap.appendChild(grid);
+			group.appendChild(grid);
+			wrap.appendChild(group);
 		});
+		wrap.appendChild(el('div', { class: 'openb-widgetlist__empty', style: 'display:none', text: 'No widgets match your search.' }));
 		return wrap;
+	}
+
+	// Filter the widget panel by name; hides non-matching widgets and any
+	// category that ends up empty. Empty query restores the full list.
+	function filterWidgets(query) {
+		var wrap = document.querySelector('.openb-widgetlist');
+		if (!wrap) return;
+		var q = (query || '').trim().toLowerCase();
+		var anyVisible = false;
+		Array.prototype.forEach.call(wrap.querySelectorAll('.openb-widgetcat-group'), function (group) {
+			var groupVisible = false;
+			Array.prototype.forEach.call(group.querySelectorAll('.openb-widget'), function (item) {
+				var match = !q || (item.getAttribute('data-search') || '').indexOf(q) !== -1;
+				item.style.display = match ? '' : 'none';
+				if (match) { groupVisible = true; anyVisible = true; }
+			});
+			group.style.display = groupVisible ? '' : 'none';
+		});
+		var empty = wrap.querySelector('.openb-widgetlist__empty');
+		if (empty) empty.style.display = anyVisible ? 'none' : '';
 	}
 
 	function quickAdd(type) {

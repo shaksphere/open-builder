@@ -69,10 +69,13 @@ on the basics, done cleanly.
 
 - **Live drag-and-drop editor** with a real-time, server-rendered canvas (true
   WYSIWYG — the same PHP renderer drives the editor and the front end).
-- **31 widgets** across Layout, Basic, Media, Marketing, Interactive, Dynamic
+- **32 widgets** across Layout, Basic, Media, Marketing, Interactive, Dynamic
   and Advanced groups — including Video, Gallery, Accordion, Tabs, Counter,
-  Progress Bar, Testimonial, Star Rating, Icon Box, Icon List, Social Icons and
-  a keyless Google Map.
+  Progress Bar, Testimonial, Star Rating, Icon Box, Icon List, Social Icons,
+  a keyless Google Map, and a Shortcode widget for embedding any registered
+  WordPress shortcode.
+- **Widget search** in the editor panel — filter the widget list by name as you
+  type.
 - **Visual style controls**: icon button-groups, slider + unit pickers, linked
   padding/margin box, colour popover, border/shadow builders, background
   (colour/image/gradient), per-breakpoint responsive controls.

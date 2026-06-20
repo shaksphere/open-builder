@@ -4,7 +4,7 @@ Tags: page builder, visual builder, drag and drop, editor, landing page
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.15.0
+Stable tag: 1.16.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -66,6 +66,10 @@ As a sanitized JSON tree in post meta (`_openb_tree`), with compiled CSS cached
 in `_openb_compiled_css`.
 
 == Changelog ==
+
+= 1.16.0 =
+* Shortcode widget: drop in any registered WordPress shortcode (e.g. [open_form id="2"], contact-form-7, gallery) and it renders in place on both the front end and the editor canvas.
+* Widget search: a search box at the top of the Widgets panel filters the widget list by name as you type, hiding empty categories.
 
 = 1.15.0 =
 * Section Library: a "＋ Section Library" button in the Widgets panel inserts ready-made layouts (Hero, Call to action, Two columns, Three features, Testimonial) you can then edit.
