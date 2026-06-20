@@ -155,7 +155,14 @@
 					if (input.checked) fields[name] = input.value;
 					return;
 				}
+				if (input.type === 'file') return; // handled separately as multipart
 				fields[name] = input.value;
+			});
+
+			// Collect any chosen files; their presence switches us to multipart.
+			var fileInputs = [];
+			Array.prototype.forEach.call(form.querySelectorAll('input[type=file]'), function (fi) {
+				if (fi.name && fi.files && fi.files.length) fileInputs.push(fi);
 			});
 
 			// Client-side required check for radio/checkbox groups (HTML "required"
@@ -174,18 +181,38 @@
 			form.classList.add('is-submitting');
 			setMessage(messageEl, '', '');
 
-			fetch(CFG.restUrl + '/form', {
-				method: 'POST',
-				credentials: 'same-origin',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					form_id: formId,
-					post_id: CFG.postId,
-					_nonce: nonce,
-					ob_hp: form.querySelector('[name="ob_hp"]') ? form.querySelector('[name="ob_hp"]').value : '',
-					fields: fields
-				})
-			}).then(function (r) {
+			var hp = form.querySelector('[name="ob_hp"]') ? form.querySelector('[name="ob_hp"]').value : '';
+			var opts;
+			if (fileInputs.length) {
+				// Multipart: carries scalar fields plus the file blobs.
+				var fd = new FormData();
+				fd.append('form_id', formId);
+				fd.append('post_id', CFG.postId);
+				fd.append('_nonce', nonce);
+				fd.append('ob_hp', hp);
+				Object.keys(fields).forEach(function (k) {
+					var v = fields[k];
+					if (Array.isArray(v)) v.forEach(function (item) { fd.append('fields[' + k + '][]', item); });
+					else fd.append('fields[' + k + ']', v);
+				});
+				fileInputs.forEach(function (fi) { fd.append(fi.name, fi.files[0]); });
+				opts = { method: 'POST', credentials: 'same-origin', body: fd }; // browser sets multipart boundary
+			} else {
+				opts = {
+					method: 'POST',
+					credentials: 'same-origin',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						form_id: formId,
+						post_id: CFG.postId,
+						_nonce: nonce,
+						ob_hp: hp,
+						fields: fields
+					})
+				};
+			}
+
+			fetch(CFG.restUrl + '/form', opts).then(function (r) {
 				return r.json().then(function (j) { return { ok: r.ok, data: j }; });
 			}).then(function (res) {
 				form.classList.remove('is-submitting');

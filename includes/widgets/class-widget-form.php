@@ -11,7 +11,13 @@ defined( 'ABSPATH' ) || exit;
 class Widget_Form extends Abstract_Widget {
 
 	/** Field types this widget can render. Kept in sync with Forms validation. */
-	const FIELD_TYPES = [ 'text', 'email', 'tel', 'number', 'textarea', 'select', 'radio', 'checkbox', 'date', 'hidden' ];
+	const FIELD_TYPES = [ 'text', 'email', 'tel', 'number', 'textarea', 'select', 'radio', 'checkbox', 'date', 'file', 'hidden' ];
+
+	/** Allowed upload extensions for file fields. Filterable. */
+	const ALLOWED_FILE_EXT = [ 'jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'doc', 'docx', 'txt', 'csv' ];
+
+	/** Max upload size in bytes (5 MB). Filterable via openb_form_max_upload. */
+	const MAX_FILE_BYTES = 5242880;
 
 	/** Types whose value is chosen from a comma-separated option list. */
 	const OPTION_TYPES = [ 'select', 'radio', 'checkbox' ];
@@ -39,6 +45,7 @@ class Widget_Form extends Abstract_Widget {
 						'radio'    => 'Radio buttons',
 						'checkbox' => 'Checkboxes',
 						'date'     => 'Date',
+						'file'     => 'File upload',
 						'hidden'   => 'Hidden',
 					], 'default' => 'text' ],
 					'options'     => [ 'type' => 'text', 'label' => 'Options (comma-separated)', 'default' => '' ],
@@ -224,6 +231,12 @@ class Widget_Form extends Abstract_Widget {
 
 			case 'number':
 				$input = sprintf( '<input type="number" id="%1$s" name="%2$s" value="%4$s"%3$s%5$s />', $fid, esc_attr( $name ), $req_attr, esc_attr( $dval ), $ph_attr );
+				break;
+
+			case 'file':
+				$exts   = (array) apply_filters( 'openb_form_allowed_ext', self::ALLOWED_FILE_EXT );
+				$accept = implode( ',', array_map( function ( $e ) { return '.' . ltrim( $e, '.' ); }, $exts ) );
+				$input  = sprintf( '<input type="file" id="%1$s" name="%2$s" accept="%4$s"%3$s />', $fid, esc_attr( $name ), $req_attr, esc_attr( $accept ) );
 				break;
 
 			default: // text, email, tel

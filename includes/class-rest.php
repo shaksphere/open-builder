@@ -261,7 +261,8 @@ class Rest {
 		}
 
 		$fields = (array) $request->get_param( 'fields' );
-		$result = $this->forms->handle_submission( $form_id, $post_id, $fields );
+		$files  = $request->get_file_params();
+		$result = $this->forms->handle_submission( $form_id, $post_id, $fields, $files );
 
 		return new \WP_REST_Response( $result, $result['success'] ? 200 : 422 );
 	}

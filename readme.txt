@@ -4,7 +4,7 @@ Tags: page builder, visual builder, drag and drop, editor, landing page
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.18.0
+Stable tag: 1.19.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -36,7 +36,7 @@ Features:
 * Query Loop: design one card and repeat it over a query (post type, count, columns, order, taxonomy/term filter), with each card bound to its own post.
 * Per-breakpoint responsive style controls (desktop / tablet / mobile).
 * Global brand settings (colors, fonts, sizes) exposed as CSS variables.
-* Form builder with 10 field types, database storage, email notifications, a spam honeypot, an admin entries viewer, and post-submit actions (redirect, webhook, auto-reply).
+* Form builder with 11 field types (incl. file upload), database storage, email notifications, a spam honeypot, an admin entries viewer, and post-submit actions (redirect, webhook, auto-reply).
 * Custom CSS per element and custom CSS classes/IDs.
 * Built for current WordPress and PHP 8+, with security-first input handling.
 
@@ -66,6 +66,9 @@ As a sanitized JSON tree in post meta (`_openb_tree`), with compiled CSS cached
 in `_openb_compiled_css`.
 
 == Changelog ==
+
+= 1.19.0 =
+* Form file uploads: add a "File upload" field type. Visitors can attach a file (images, PDF, Word, text, CSV by default), which is validated by real file type and size (5 MB cap), stored in the media uploads folder, linked in the entry, and attached to the notification email. The allowlist and size limit are filterable (openb_form_allowed_ext, openb_form_max_upload).
 
 = 1.18.0 =
 * Form actions: after a submission you can now redirect to a thank-you URL, POST the entry as JSON to a webhook, and/or send an auto-reply email to the submitter (subject + message, sent to the first email field). All configured per form in the Form widget's settings; the existing notification email and database storage still apply.

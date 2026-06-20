@@ -51,7 +51,7 @@ class Forms {
 	 * @param array  $fields  Raw $_POST field map.
 	 * @return array{success:bool,message:string}
 	 */
-	public function handle_submission( string $form_id, int $post_id, array $fields ): array {
+	public function handle_submission( string $form_id, int $post_id, array $fields, array $files = [] ): array {
 		// Re-derive the field schema from the saved tree so we only accept the
 		// fields this form actually defines — never trust the client's field list.
 		$schema = $this->find_form_fields( $post_id, $form_id );
@@ -63,6 +63,7 @@ class Forms {
 		$missing = [];
 		$email_to = '';
 		$submitter_email = '';
+		$uploaded_paths  = []; // absolute paths of moved uploads, for cleanup/attachments
 
 		foreach ( $schema['fields'] as $field ) {
 			$name = sanitize_key( $field['name'] ?? '' );
@@ -82,6 +83,27 @@ class Forms {
 					$missing[] = $label;
 				}
 				$clean[ $name ] = [ 'label' => $label, 'value' => implode( ', ', $picked ) ];
+				continue;
+			}
+
+			if ( 'file' === $type ) {
+				$file = $files[ $name ] ?? null;
+				$has  = is_array( $file ) && ! empty( $file['name'] ) && (int) ( $file['error'] ?? UPLOAD_ERR_NO_FILE ) !== UPLOAD_ERR_NO_FILE;
+				if ( ! $has ) {
+					if ( ! empty( $field['required'] ) ) {
+						$missing[] = $label;
+					}
+					$clean[ $name ] = [ 'label' => $label, 'value' => '' ];
+					continue;
+				}
+				$up = $this->handle_upload( $file );
+				if ( is_wp_error( $up ) ) {
+					$missing[] = $label . ' (' . $up->get_error_message() . ')';
+					$clean[ $name ] = [ 'label' => $label, 'value' => '' ];
+					continue;
+				}
+				$uploaded_paths[] = $up['file'];
+				$clean[ $name ]   = [ 'label' => $label, 'value' => $up['url'] ];
 				continue;
 			}
 
@@ -118,6 +140,10 @@ class Forms {
 		}
 
 		if ( ! empty( $missing ) ) {
+			// Don't leave orphaned uploads behind when the submission is rejected.
+			foreach ( $uploaded_paths as $p ) {
+				wp_delete_file( $p );
+			}
 			return [
 				'success' => false,
 				'message' => sprintf(
@@ -132,7 +158,7 @@ class Forms {
 
 		$email_to = $schema['email_to'] ?: get_option( 'admin_email' );
 		if ( $email_to && is_email( $email_to ) ) {
-			$this->notify( $email_to, $post_id, $clean );
+			$this->notify( $email_to, $post_id, $clean, $uploaded_paths );
 		}
 
 		// Action: POST the entry to an external webhook (best-effort, non-blocking).
@@ -165,7 +191,7 @@ class Forms {
 		);
 	}
 
-	private function notify( string $to, int $post_id, array $data ): void {
+	private function notify( string $to, int $post_id, array $data, array $attachments = [] ): void {
 		$lines = [];
 		foreach ( $data as $entry ) {
 			$lines[] = sprintf( '%s: %s', $entry['label'], $entry['value'] );
@@ -180,7 +206,51 @@ class Forms {
 			__( 'Submitted from: %s', 'open-builder' ),
 			get_permalink( $post_id )
 		);
-		wp_mail( $to, $subject, $body );
+		wp_mail( $to, $subject, $body, '', array_values( array_filter( $attachments, 'file_exists' ) ) );
+	}
+
+	/**
+	 * Validate and move an uploaded file into the WordPress uploads directory.
+	 * Restricted to a small extension/MIME allowlist and a size cap; the real
+	 * file contents are checked (not just the client-supplied name).
+	 *
+	 * @param array $file A single $_FILES-style entry.
+	 * @return array{url:string,file:string}|\WP_Error
+	 */
+	private function handle_upload( array $file ) {
+		require_once ABSPATH . 'wp-admin/includes/file.php';
+
+		$allowed = array_map( 'strtolower', (array) apply_filters( 'openb_form_allowed_ext', Widget_Form::ALLOWED_FILE_EXT ) );
+		$max     = (int) apply_filters( 'openb_form_max_upload', Widget_Form::MAX_FILE_BYTES );
+
+		if ( (int) ( $file['size'] ?? 0 ) > $max ) {
+			return new \WP_Error( 'too_big', __( 'file too large', 'open-builder' ) );
+		}
+
+		// Build a MIME map limited to the allowed extensions.
+		$mimes = [];
+		foreach ( wp_get_mime_types() as $exts => $mime ) {
+			foreach ( explode( '|', $exts ) as $e ) {
+				if ( in_array( $e, $allowed, true ) ) {
+					$mimes[ $exts ] = $mime;
+					break;
+				}
+			}
+		}
+
+		// Verify the actual file type against the allowlist (defends against a
+		// disguised extension).
+		$checked = wp_check_filetype_and_ext( $file['tmp_name'], $file['name'], $mimes );
+		if ( empty( $checked['ext'] ) || empty( $checked['type'] ) || ! in_array( strtolower( $checked['ext'] ), $allowed, true ) ) {
+			return new \WP_Error( 'bad_type', __( 'file type not allowed', 'open-builder' ) );
+		}
+
+		$moved = wp_handle_upload( $file, [ 'test_form' => false, 'mimes' => $mimes ] );
+		if ( ! is_array( $moved ) || isset( $moved['error'] ) ) {
+			return new \WP_Error( 'upload_failed', is_array( $moved ) ? $moved['error'] : __( 'upload failed', 'open-builder' ) );
+		}
+
+		return [ 'url' => $moved['url'], 'file' => $moved['file'] ];
 	}
 
 	/**
