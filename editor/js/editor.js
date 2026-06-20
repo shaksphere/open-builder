@@ -1639,6 +1639,36 @@
 	/* ----------------------------------------------------------------------- *
 	 * Node actions
 	 * ----------------------------------------------------------------------- */
+	// Turn the selected element into a reusable Global Block: create the block
+	// from this subtree, then replace the node with a reference to it.
+	function saveAsGlobalBlock(id) {
+		var hit = findNode(id);
+		if (!hit) return;
+		var def = WIDGETS[hit.node.type] || {};
+		var name = window.prompt('Name this block:', (def.title || 'Block') + ' block');
+		if (name === null) return;
+		api('/create-block', { tree: [deepClone(hit.node)], title: name }).then(function (res) {
+			if (!res.ok || !res.data || !res.data.block_id) {
+				toast((res.data && res.data.message) || 'Could not save block', true);
+				return;
+			}
+			// Keep the inspector dropdown in sync without a reload.
+			if (WIDGETS.global_block && WIDGETS.global_block.controls && WIDGETS.global_block.controls.block_id) {
+				WIDGETS.global_block.controls.block_id.choices[String(res.data.block_id)] = res.data.title;
+			}
+			pushHistory();
+			var ref = {
+				id: uid(), type: 'global_block',
+				settings: { content: { block_id: String(res.data.block_id) }, style: {}, background: {}, advanced: { css_id: '', css_classes: '', custom_css: '' }, dynamic: {} },
+				children: []
+			};
+			hit.list.splice(hit.index, 1, ref);
+			markDirty(); renderCanvas(); renderLayers(); selectNode(ref.id, true);
+			save(); // persist the page so the reference survives a reload
+			toast('Saved as Global Block');
+		}).catch(function () { toast('Could not save block', true); });
+	}
+
 	function duplicateNode(id) {
 		var hit = findNode(id);
 		if (!hit) return;
@@ -1708,18 +1738,25 @@
 	function nodeMenuItems(id) {
 		var hit = findNode(id);
 		var isContainer = hit && WIDGETS[hit.node.type] && WIDGETS[hit.node.type].isContainer;
-		return [
+		var isGlobalBlock = hit && hit.node.type === 'global_block';
+		var items = [
 			{ label: 'Edit', icon: '✎', fn: function () { selectNode(id); } },
 			{ label: 'Copy', icon: '⧉', fn: function () { copyNode(id); } },
 			{ label: 'Cut', icon: '✂', fn: function () { cutNode(id); } },
 			{ label: state.clipboard ? (isContainer ? 'Paste inside' : 'Paste after') : 'Paste', icon: '📋', disabled: !state.clipboard, fn: function () { pasteNode(id); } },
-			{ label: 'Duplicate', icon: '⎘', fn: function () { duplicateNode(id); } },
-			{ sep: true },
-			{ label: 'Move Up', icon: '↑', fn: function () { moveUp(id); } },
-			{ label: 'Move Down', icon: '↓', fn: function () { moveDown(id); } },
-			{ sep: true },
-			{ label: 'Delete', icon: '🗑', danger: true, fn: function () { deleteNode(id); } }
+			{ label: 'Duplicate', icon: '⎘', fn: function () { duplicateNode(id); } }
 		];
+		// Turn the selected element into a reusable Global Block (admins only).
+		if (BOOT.canManage && !isGlobalBlock) {
+			items.push({ sep: true });
+			items.push({ label: 'Save as Global Block', icon: '🧩', fn: function () { saveAsGlobalBlock(id); } });
+		}
+		items.push({ sep: true });
+		items.push({ label: 'Move Up', icon: '↑', fn: function () { moveUp(id); } });
+		items.push({ label: 'Move Down', icon: '↓', fn: function () { moveDown(id); } });
+		items.push({ sep: true });
+		items.push({ label: 'Delete', icon: '🗑', danger: true, fn: function () { deleteNode(id); } });
+		return items;
 	}
 
 	function showContextMenu(x, y, items) {

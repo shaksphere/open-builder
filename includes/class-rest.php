@@ -65,6 +65,15 @@ class Rest {
 			],
 		] );
 
+		register_rest_route( self::NS, '/create-block', [
+			'methods'             => 'POST',
+			'callback'            => [ $this, 'create_block' ],
+			'permission_callback' => [ $this, 'can_manage' ],
+			'args'                => [
+				'tree' => [ 'required' => true ],
+			],
+		] );
+
 		register_rest_route( self::NS, '/form', [
 			'methods'             => 'POST',
 			'callback'            => [ $this, 'submit_form' ],
@@ -195,6 +204,44 @@ class Rest {
 		return new \WP_REST_Response( [
 			'success'  => true,
 			'post_id'  => (int) $post_id,
+			'edit_url' => Editor::edit_url( (int) $post_id ),
+		], 200 );
+	}
+
+	/**
+	 * Create a reusable Global Block from a sanitized subtree (the editor's
+	 * "Save as Global Block" action) and return its id so the page can reference
+	 * it. The caller then replaces the selected node with a global_block widget.
+	 */
+	public function create_block( \WP_REST_Request $request ): \WP_REST_Response {
+		$tree = $this->read_tree( $request );
+		if ( empty( $tree ) ) {
+			return new \WP_REST_Response( [ 'success' => false, 'message' => __( 'Nothing to save.', 'open-builder' ) ], 400 );
+		}
+
+		$title = sanitize_text_field( (string) $request->get_param( 'title' ) );
+		if ( '' === $title ) {
+			$title = __( 'Block', 'open-builder' );
+		}
+
+		$post_id = wp_insert_post( [
+			'post_type'   => Post_Types::CPT_BLOCK,
+			'post_status' => 'publish',
+			'post_title'  => $title,
+		], true );
+
+		if ( is_wp_error( $post_id ) || ! $post_id ) {
+			return new \WP_REST_Response( [ 'success' => false, 'message' => __( 'Could not create the block.', 'open-builder' ) ], 500 );
+		}
+
+		$css = $this->renderer->compile_css( $tree, $this->globals );
+		Post_Types::save_tree( (int) $post_id, $tree, $css );
+		Plugin::instance()->css_store->write_page( (int) $post_id, $this->renderer->compile_node_css( $tree ) );
+
+		return new \WP_REST_Response( [
+			'success'  => true,
+			'block_id' => (int) $post_id,
+			'title'    => $title,
 			'edit_url' => Editor::edit_url( (int) $post_id ),
 		], 200 );
 	}

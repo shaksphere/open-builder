@@ -183,13 +183,21 @@ class Renderer {
 		}
 
 		$this->rendering_blocks[ $block_id ] = true;
+		$tree = Post_Types::get_tree( $block_id );
 		$html = '';
-		foreach ( Post_Types::get_tree( $block_id ) as $child ) {
+		foreach ( $tree as $child ) {
 			$html .= $this->render_node( $child );
 		}
 		unset( $this->rendering_blocks[ $block_id ] );
 
-		return $html;
+		// The block's per-node CSS lives in the block, not the host page, so inline
+		// it (compiled fresh) here — that keeps styling correct everywhere the
+		// block is used and updates live when the block is edited. Global :root
+		// vars + responsive base already come from the page's global CSS.
+		$css = $this->compile_node_css( $tree );
+		$style = '' !== trim( $css ) ? sprintf( '<style>%s</style>', $css ) : '';
+
+		return $style . $html;
 	}
 
 	/** Current page for a query loop, from the ?ob_page=N query parameter. */

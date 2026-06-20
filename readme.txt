@@ -4,7 +4,7 @@ Tags: page builder, visual builder, drag and drop, editor, landing page
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.14.0
+Stable tag: 1.14.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -66,6 +66,10 @@ As a sanitized JSON tree in post meta (`_openb_tree`), with compiled CSS cached
 in `_openb_compiled_css`.
 
 == Changelog ==
+
+= 1.14.1 =
+* Saved / Global Blocks: "Save as Global Block" — right-click any element (section, column, widget) to turn it into a reusable block in one step; the element is replaced with a reference to the new block.
+* Fix: blocks with custom styling now render correctly wherever they are used — the block's compiled CSS is included on the host page (previously a styled block could appear unstyled on a page that used it).
 
 = 1.14.0 =
 * Saved / Global Blocks: design a block once and reuse it across pages with the new "Global Block" widget. Create blocks under Open Builder → Blocks, then drop a Global Block on any page and pick which block to show. Editing the block updates it everywhere it appears — ideal for a shared CTA, footer band or banner. Reference cycles are guarded against.
