@@ -50,6 +50,14 @@ html, body { height: 100%; margin: 0; }
 .openb-btn[disabled] { opacity: .6; cursor: default; }
 .openb-btn.is-active { background: rgba(255,255,255,.22); color: #fff; box-shadow: inset 0 0 0 1px rgba(255,255,255,.25); }
 
+/* Import/Export button row + Section Library cards */
+.openb-btnrow { display: flex; gap: 8px; margin-bottom: 10px; }
+.openb-btnrow .openb-btn { flex: 1; justify-content: center; }
+.openb-tpl-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.openb-tpl-card { padding: 20px 12px; border: 1px solid #e2e5ea; border-radius: 8px; background: #fff; cursor: pointer; font-weight: 600; color: var(--ob-text); text-align: center; }
+.openb-tpl-card:hover { border-color: var(--ob-primary); color: var(--ob-primary); background: #f8faff; }
+.openb-tpl-card__name { font-size: 14px; }
+
 /* Color-contrast hint under color controls */
 .openb-contrast-hint { margin: 4px 0 0; font-size: 11px; color: #6b7280; line-height: 1.4; }
 .openb-contrast-hint:empty { display: none; }

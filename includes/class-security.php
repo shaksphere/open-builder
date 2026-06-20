@@ -132,6 +132,9 @@ class Security {
 			'css_id'      => isset( $settings['advanced']['css_id'] ) ? sanitize_html_class( $settings['advanced']['css_id'] ) : '',
 			'css_classes' => isset( $settings['advanced']['css_classes'] ) ? self::sanitize_class_list( $settings['advanced']['css_classes'] ) : '',
 			'custom_css'  => isset( $settings['advanced']['custom_css'] ) ? self::sanitize_custom_css( $settings['advanced']['custom_css'] ) : '',
+			'hide_desktop' => ! empty( $settings['advanced']['hide_desktop'] ),
+			'hide_tablet'  => ! empty( $settings['advanced']['hide_tablet'] ),
+			'hide_mobile'  => ! empty( $settings['advanced']['hide_mobile'] ),
 		];
 
 		return [

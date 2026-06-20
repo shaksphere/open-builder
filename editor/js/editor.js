@@ -590,6 +590,7 @@
 				el('button', { class: 'openb-btn', title: 'Undo', onclick: undo }, [svg('M7 7L3 11l4 4M3 11h10a4 4 0 010 8h-2')]),
 				el('button', { class: 'openb-btn', title: 'Redo', onclick: redo }, [svg('M13 7l4 4-4 4M17 11H7a4 4 0 000 8h2')]),
 				el('button', { class: 'openb-btn', title: 'Page Settings', onclick: openPageSettings }, [svg('M10 3l1.5 2.6 3-.5-.5 3L16.5 11l-2.5 1.4.5 3-3-.5L10 17l-1.5-2.6-3 .5.5-3L3.5 9l2.5-1.4-.5-3 3 .5z'), ' Page']),
+				el('button', { class: 'openb-btn', title: 'Import / Export JSON', onclick: openImportExport }, [svg('M10 3v10M6 9l4 4 4-4M4 17h12'), ' I/O']),
 				el('a', { class: 'openb-btn', href: BOOT.viewUrl, target: '_blank', rel: 'noopener' }, ['View']),
 				el('a', { class: 'openb-btn', href: BOOT.exitUrl }, ['Exit']),
 				saveBtn
@@ -606,7 +607,10 @@
 		].filter(Boolean));
 		panel.appendChild(tabs);
 
-		panel.appendChild(el('div', { class: 'openb-tabpane', id: 'pane-widgets' }, [buildWidgetList()]));
+		panel.appendChild(el('div', { class: 'openb-tabpane', id: 'pane-widgets' }, [
+			el('button', { class: 'openb-btn openb-btn--primary openb-btn--block', onclick: openSectionLibrary }, ['＋ Section Library']),
+			buildWidgetList()
+		]));
 		panel.appendChild(el('div', { class: 'openb-tabpane', id: 'pane-layers', style: 'display:none' }));
 		if (BOOT.canManage) panel.appendChild(el('div', { class: 'openb-tabpane', id: 'pane-globals', style: 'display:none' }));
 
@@ -1456,6 +1460,13 @@
 		var cssField = controlField({ type: 'textarea', label: 'Custom CSS (use "selector" for this element)' }, adv.custom_css, function (v) { adv.custom_css = v; markDirty(); rerender(); });
 		wrap.appendChild(cssField);
 		wrap.appendChild(el('p', { class: 'openb-hint', text: 'Example: selector { box-shadow: 0 4px 20px rgba(0,0,0,.1) }' }));
+
+		// Responsive visibility: hide this element on specific devices.
+		wrap.appendChild(el('div', { class: 'openb-stylegroup__title', text: 'Responsive Visibility' }));
+		[['hide_desktop', 'Hide on Desktop'], ['hide_tablet', 'Hide on Tablet'], ['hide_mobile', 'Hide on Mobile']].forEach(function (h) {
+			wrap.appendChild(controlField({ type: 'toggle', label: h[1] }, !!adv[h[0]], function (v) { adv[h[0]] = v; markDirty(); rerender(); }));
+		});
+
 		return wrap;
 	}
 
@@ -1900,6 +1911,143 @@
 	function closeModal() {
 		var m = document.querySelector('.openb-modal-overlay');
 		if (m) m.parentNode.removeChild(m);
+	}
+
+	function modal(title, bodyEl, footEl) {
+		var overlay = el('div', { class: 'openb-modal-overlay', onclick: function (e) { if (e.target === overlay) closeModal(); } });
+		var m = el('div', { class: 'openb-modal' }, [
+			el('div', { class: 'openb-modal__head' }, [
+				el('span', { class: 'openb-modal__title', text: title }),
+				el('button', { class: 'openb-iconbtn', text: '×', title: 'Close', onclick: closeModal })
+			]),
+			bodyEl
+		]);
+		if (footEl) m.appendChild(footEl);
+		overlay.appendChild(m);
+		document.body.appendChild(overlay);
+		return overlay;
+	}
+
+	/* ----------------------------------------------------------------------- *
+	 * Import / Export the current page (or block) as JSON
+	 * ----------------------------------------------------------------------- */
+	function slugify(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
+
+	function openImportExport() {
+		var body = el('div', { class: 'openb-modal__body' });
+
+		body.appendChild(el('div', { class: 'openb-stylegroup__title', text: 'Export' }));
+		body.appendChild(el('p', { class: 'openb-hint', text: 'Download or copy this design as JSON to back it up or reuse it on another page or site.' }));
+		var exportText = el('textarea', { class: 'openb-input', rows: 6, readonly: 'readonly' });
+		exportText.value = JSON.stringify(state.tree, null, 2);
+		body.appendChild(el('div', { class: 'openb-field' }, [exportText]));
+		body.appendChild(el('div', { class: 'openb-btnrow' }, [
+			el('button', { class: 'openb-btn openb-btn--primary', onclick: function () {
+				var blob = new Blob([JSON.stringify(state.tree, null, 2)], { type: 'application/json' });
+				var url = URL.createObjectURL(blob);
+				var a = document.createElement('a');
+				a.href = url; a.download = (slugify(BOOT.postTitle) || 'open-builder') + '.json';
+				document.body.appendChild(a); a.click(); a.remove();
+				setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+			} }, ['Download .json']),
+			el('button', { class: 'openb-btn', onclick: function () {
+				exportText.select();
+				try { document.execCommand('copy'); toast('Copied JSON'); } catch (e) { toast('Press Ctrl/Cmd+C to copy', true); }
+			} }, ['Copy'])
+		]));
+
+		body.appendChild(el('div', { class: 'openb-stylegroup__title', text: 'Import' }));
+		body.appendChild(el('p', { class: 'openb-hint', text: 'Paste exported JSON (or choose a .json file) to replace the current content.' }));
+		var importText = el('textarea', { class: 'openb-input', rows: 6, placeholder: '[ … ]' });
+		var fileInput = el('input', { type: 'file', accept: 'application/json,.json' });
+		fileInput.addEventListener('change', function () {
+			var f = fileInput.files && fileInput.files[0];
+			if (!f) return;
+			var r = new FileReader();
+			r.onload = function () { importText.value = String(r.result || ''); };
+			r.readAsText(f);
+		});
+		body.appendChild(el('div', { class: 'openb-field' }, [importText]));
+		body.appendChild(el('div', { class: 'openb-field' }, [fileInput]));
+
+		var foot = el('div', { class: 'openb-modal__foot' }, [
+			el('button', { class: 'openb-btn', onclick: closeModal }, ['Close']),
+			el('button', { class: 'openb-btn openb-btn--primary', onclick: function () { importJson(importText.value); } }, ['Replace content'])
+		]);
+
+		modal('Import / Export', body, foot);
+	}
+
+	function importJson(text) {
+		var parsed;
+		try { parsed = JSON.parse(text); } catch (e) { toast('Invalid JSON', true); return; }
+		if (!Array.isArray(parsed)) { toast('Expected a JSON array of elements', true); return; }
+		if (!window.confirm('Replace the current content with the imported JSON? You can still Undo.')) return;
+		pushHistory();
+		state.tree = normalizeTree(parsed);
+		state.selectedId = null;
+		markDirty(); renderCanvas(); renderLayers(); renderInspector();
+		closeModal(); toast('Imported');
+	}
+
+	/* ----------------------------------------------------------------------- *
+	 * Section template library: insert a ready-made layout
+	 * ----------------------------------------------------------------------- */
+	var SECTION_TEMPLATES = [
+		{ name: 'Hero', spec: { type: 'section', style: { desktop: { 'padding-top': '90px', 'padding-bottom': '90px', 'text-align': 'center' } }, children: [
+			{ type: 'heading', content: { text: 'A headline that sells', tag: 'h1' } },
+			{ type: 'text', content: { text: '<p>Explain your value in a sentence or two so visitors instantly get it.</p>' } },
+			{ type: 'button', content: { text: 'Get started', url: '#' } }
+		] } },
+		{ name: 'Call to action', spec: { type: 'section', style: { desktop: { 'padding-top': '64px', 'padding-bottom': '64px', 'text-align': 'center' } }, children: [
+			{ type: 'heading', content: { text: 'Ready to begin?', tag: 'h2' } },
+			{ type: 'button', content: { text: 'Contact us', url: '#' } }
+		] } },
+		{ name: 'Two columns', spec: { type: 'section', style: { desktop: { 'padding-top': '64px', 'padding-bottom': '64px' } }, children: [
+			{ type: 'columns', children: [
+				{ type: 'column', children: [{ type: 'icon_box', content: { title: 'Feature one', text: 'Describe the benefit here.' } }] },
+				{ type: 'column', children: [{ type: 'icon_box', content: { title: 'Feature two', text: 'Describe the benefit here.' } }] }
+			] }
+		] } },
+		{ name: 'Three features', spec: { type: 'section', style: { desktop: { 'padding-top': '64px', 'padding-bottom': '64px' } }, children: [
+			{ type: 'columns', children: [
+				{ type: 'column', children: [{ type: 'icon_box', content: { title: 'Fast', text: 'Built for speed.' } }] },
+				{ type: 'column', children: [{ type: 'icon_box', content: { title: 'Reliable', text: 'Rock-solid foundation.' } }] },
+				{ type: 'column', children: [{ type: 'icon_box', content: { title: 'Secure', text: 'Safe by default.' } }] }
+			] }
+		] } },
+		{ name: 'Testimonial', spec: { type: 'section', style: { desktop: { 'padding-top': '64px', 'padding-bottom': '64px' } }, children: [
+			{ type: 'testimonial' }
+		] } }
+	];
+
+	function instantiatePreset(spec) {
+		var node = newNode(spec.type);
+		if (spec.content) Object.keys(spec.content).forEach(function (k) { node.settings.content[k] = spec.content[k]; });
+		if (spec.style) node.settings.style = deepClone(spec.style);
+		if (spec.children) node.children = spec.children.map(instantiatePreset);
+		return node;
+	}
+
+	function openSectionLibrary() {
+		var body = el('div', { class: 'openb-modal__body' });
+		body.appendChild(el('p', { class: 'openb-hint', text: 'Insert a ready-made section, then edit its text and styles. It is added at the end of the page.' }));
+		var grid = el('div', { class: 'openb-tpl-grid' });
+		SECTION_TEMPLATES.forEach(function (tpl) {
+			grid.appendChild(el('button', { class: 'openb-tpl-card', onclick: function () { insertSectionTemplate(tpl); } }, [
+				el('span', { class: 'openb-tpl-card__name', text: tpl.name })
+			]));
+		});
+		body.appendChild(grid);
+		modal('Section Library', body);
+	}
+
+	function insertSectionTemplate(tpl) {
+		pushHistory();
+		var node = instantiatePreset(tpl.spec);
+		insertNode(node, null); // append at root
+		markDirty(); renderCanvas(); renderLayers(); selectNode(node.id, true);
+		closeModal(); toast(tpl.name + ' added');
 	}
 
 	function markDirty() { state.dirty = true; }

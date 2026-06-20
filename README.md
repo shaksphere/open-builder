@@ -89,6 +89,11 @@ on the basics, done cleanly.
   columns, order, taxonomy/term filter); each card binds to its own post.
 - **Saved / Global Blocks**: design a block once and reuse it across pages;
   editing the block updates it everywhere it's used.
+- **Section library**: insert ready-made section layouts (hero, CTA, features,
+  testimonial) and edit them.
+- **Import / Export**: export a page or block as JSON to back up or move between
+  pages and sites; import JSON to replace content.
+- **Responsive visibility**: hide any element on desktop, tablet, or mobile.
 - **Global brand settings** (colours, fonts, sizes) as CSS variables, plus a
   site-wide custom CSS box.
 - **SEO helpers** (per-page meta title/description/OG image) that automatically

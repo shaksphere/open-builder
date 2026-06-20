@@ -75,6 +75,19 @@ class Css_Generator {
 				$base .= str_replace( 'selector', $selector, $custom );
 			}
 
+			// Responsive visibility. Non-overlapping ranges so each toggle is
+			// independent: desktop >1024, tablet 768–1024, mobile <768.
+			$adv = $settings['advanced'] ?? [];
+			if ( ! empty( $adv['hide_desktop'] ) ) {
+				$base .= sprintf( '@media(min-width:%dpx){%s{display:none!important;}}', self::BREAKPOINTS['tablet'] + 1, $selector );
+			}
+			if ( ! empty( $adv['hide_tablet'] ) ) {
+				$base .= sprintf( '@media(min-width:%dpx) and (max-width:%dpx){%s{display:none!important;}}', self::BREAKPOINTS['mobile'] + 1, self::BREAKPOINTS['tablet'], $selector );
+			}
+			if ( ! empty( $adv['hide_mobile'] ) ) {
+				$base .= sprintf( '@media(max-width:%dpx){%s{display:none!important;}}', self::BREAKPOINTS['mobile'], $selector );
+			}
+
 			if ( ! empty( $node['children'] ) ) {
 				$this->walk( $node['children'], $base, $tablet, $mobile );
 			}

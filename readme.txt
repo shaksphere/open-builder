@@ -4,7 +4,7 @@ Tags: page builder, visual builder, drag and drop, editor, landing page
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.14.1
+Stable tag: 1.15.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -66,6 +66,11 @@ As a sanitized JSON tree in post meta (`_openb_tree`), with compiled CSS cached
 in `_openb_compiled_css`.
 
 == Changelog ==
+
+= 1.15.0 =
+* Section Library: a "＋ Section Library" button in the Widgets panel inserts ready-made layouts (Hero, Call to action, Two columns, Three features, Testimonial) you can then edit.
+* Import / Export: a new "I/O" button in the toolbar exports the current page (or block) as JSON to download or copy, and imports JSON to replace the content — handy for backups or moving a design between pages/sites.
+* Hide on device: each element's Advanced tab now has "Hide on Desktop / Tablet / Mobile" toggles, using non-overlapping responsive ranges so each is independent.
 
 = 1.14.1 =
 * Saved / Global Blocks: "Save as Global Block" — right-click any element (section, column, widget) to turn it into a reusable block in one step; the element is replaced with a reference to the new block.
