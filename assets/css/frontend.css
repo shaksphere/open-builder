@@ -175,6 +175,11 @@ body.openb-built { overflow-x: hidden; }
 .ob-loop__pagination .ob-page-link.is-current { background: var(--ob-color-primary, #2563eb); border-color: var(--ob-color-primary, #2563eb); color: #fff; }
 .ob-loop__pagination .ob-page-ellipsis { padding: 0 4px; color: var(--ob-color-muted, #6b7280); }
 
+/* ----- Global blocks ----- */
+.ob-globalblock-empty { padding: 24px; text-align: center; color: #7c3aed; border: 2px dashed #c4b5fd; border-radius: 8px; background: rgba(124,58,237,.04); font: 600 14px/1.4 system-ui, sans-serif; }
+/* Editor-only: show the reusable block's boundary (front end stays clean). */
+.openb-preview-body .ob-global_block { outline: 1px dashed rgba(124,58,237,.5); outline-offset: 2px; }
+
 /* ----- Popups ----- */
 .openb-popup { position: fixed; inset: 0; z-index: 99999; display: flex; padding: 20px; }
 .openb-popup[hidden] { display: none; }

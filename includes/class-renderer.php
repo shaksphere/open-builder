@@ -18,6 +18,9 @@ class Renderer {
 	/** HTML appended after a loop widget's grid (its pagination), if any. */
 	private $loop_tail = '';
 
+	/** Block ids currently rendering, to guard against reference cycles. */
+	private $rendering_blocks = [];
+
 	public function __construct( Widgets $widgets, Css_Generator $css ) {
 		$this->widgets = $widgets;
 		$this->css     = $css;
@@ -53,7 +56,10 @@ class Renderer {
 		}
 
 		$inner_html = '';
-		if ( $widget->is_loop() && ! Render_Context::is_editor() ) {
+		if ( 'global_block' === $type ) {
+			// Reusable block: render the referenced block's tree in place.
+			$inner_html = $this->render_global_block( (array) $content );
+		} elseif ( $widget->is_loop() && ! Render_Context::is_editor() ) {
 			// Query Loop: repeat the card template (children) once per query result,
 			// setting each post as the current post so dynamic bindings resolve.
 			$inner_html = $this->render_loop( $node, (array) $content );
@@ -158,6 +164,30 @@ class Renderer {
 		if ( $paginate && $total > 1 ) {
 			$this->loop_tail = $this->build_loop_pagination( $total, $current );
 		}
+
+		return $html;
+	}
+
+	/**
+	 * Render a global block's tree in place. Guards against reference cycles
+	 * (a block that includes itself, directly or transitively) and only renders
+	 * published openb_block posts.
+	 */
+	private function render_global_block( array $content ): string {
+		$block_id = (int) ( $content['block_id'] ?? 0 );
+		if ( ! $block_id || isset( $this->rendering_blocks[ $block_id ] ) ) {
+			return '';
+		}
+		if ( Post_Types::CPT_BLOCK !== get_post_type( $block_id ) || 'publish' !== get_post_status( $block_id ) ) {
+			return '';
+		}
+
+		$this->rendering_blocks[ $block_id ] = true;
+		$html = '';
+		foreach ( Post_Types::get_tree( $block_id ) as $child ) {
+			$html .= $this->render_node( $child );
+		}
+		unset( $this->rendering_blocks[ $block_id ] );
 
 		return $html;
 	}

@@ -60,6 +60,7 @@ class Widgets {
 			'class-widget-progress.php',
 			'class-widget-social-icons.php',
 			'class-widget-google-map.php',
+			'class-widget-global-block.php',
 		];
 		foreach ( $files as $file ) {
 			require_once $dir . $file;
@@ -96,6 +97,7 @@ class Widgets {
 			Widget_Progress::class,
 			Widget_Social_Icons::class,
 			Widget_Google_Map::class,
+			Widget_Global_Block::class,
 		];
 
 		foreach ( $classes as $class ) {

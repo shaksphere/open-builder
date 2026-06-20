@@ -69,7 +69,7 @@ on the basics, done cleanly.
 
 - **Live drag-and-drop editor** with a real-time, server-rendered canvas (true
   WYSIWYG — the same PHP renderer drives the editor and the front end).
-- **30 widgets** across Layout, Basic, Media, Marketing, Interactive, Dynamic
+- **31 widgets** across Layout, Basic, Media, Marketing, Interactive, Dynamic
   and Advanced groups — including Video, Gallery, Accordion, Tabs, Counter,
   Progress Bar, Testimonial, Star Rating, Icon Box, Icon List, Social Icons and
   a keyless Google Map.
@@ -87,6 +87,8 @@ on the basics, done cleanly.
   custom fields (post meta), ACF, or site data, with a fallback.
 - **Query Loop**: design one card and repeat it over a query (post type, count,
   columns, order, taxonomy/term filter); each card binds to its own post.
+- **Saved / Global Blocks**: design a block once and reuse it across pages;
+  editing the block updates it everywhere it's used.
 - **Global brand settings** (colours, fonts, sizes) as CSS variables, plus a
   site-wide custom CSS box.
 - **SEO helpers** (per-page meta title/description/OG image) that automatically

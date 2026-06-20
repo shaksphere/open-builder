@@ -268,6 +268,10 @@
 		// in the page context — they are edited by opening their template.
 		var nodes = doc.querySelectorAll('#openb-canvas [data-ob-id]');
 		Array.prototype.forEach.call(nodes, function (n) {
+			// Nodes rendered inside a Global Block are a reference to another
+			// block's tree, not part of this page — don't make them selectable.
+			var gb = n.closest('.ob-global_block');
+			if (gb && gb !== n) return;
 			n.classList.add('openb-editable');
 			if (n.getAttribute('data-ob-id') === state.selectedId) n.classList.add('openb-selected');
 			n.addEventListener('click', onCanvasClick);

@@ -144,7 +144,7 @@ class Editor {
 	 */
 	/** Post types edited bare in the builder (no theme header/footer chrome). */
 	private static function is_chromeless( int $post_id ): bool {
-		return in_array( get_post_type( $post_id ), [ Post_Types::CPT_TEMPLATE, Post_Types::CPT_POPUP ], true );
+		return in_array( get_post_type( $post_id ), [ Post_Types::CPT_TEMPLATE, Post_Types::CPT_POPUP, Post_Types::CPT_BLOCK ], true );
 	}
 
 	private function resolve_chrome_for( int $post_id ): array {

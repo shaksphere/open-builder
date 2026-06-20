@@ -15,6 +15,7 @@ class Post_Types {
 	const META_PAGE     = '_openb_page_settings';
 	const CPT_TEMPLATE  = 'openb_template';
 	const CPT_POPUP     = 'openb_popup';
+	const CPT_BLOCK     = 'openb_block';
 
 	private static $instance = null;
 
@@ -58,6 +59,19 @@ class Post_Types {
 			'rewrite'      => false,
 			'capability_type' => 'post',
 		] );
+
+		register_post_type( self::CPT_BLOCK, [
+			'labels'       => [
+				'name'          => __( 'Blocks', 'open-builder' ),
+				'singular_name' => __( 'Block', 'open-builder' ),
+			],
+			'public'       => false,
+			'show_ui'      => true,
+			'show_in_menu' => false,
+			'supports'     => [ 'title', 'revisions' ],
+			'rewrite'      => false,
+			'capability_type' => 'post',
+		] );
 	}
 
 	public function register_meta(): void {
@@ -78,7 +92,7 @@ class Post_Types {
 	/** Post types that may be edited with the builder. */
 	public static function builder_post_types(): array {
 		$types = array_merge(
-			[ 'page', 'post', self::CPT_TEMPLATE, self::CPT_POPUP ],
+			[ 'page', 'post', self::CPT_TEMPLATE, self::CPT_POPUP, self::CPT_BLOCK ],
 			array_keys( get_post_types( [ 'public' => true, '_builtin' => false ] ) )
 		);
 		return array_values( array_unique( apply_filters( 'open_builder_post_types', $types ) ) );

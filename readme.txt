@@ -4,7 +4,7 @@ Tags: page builder, visual builder, drag and drop, editor, landing page
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.13.1
+Stable tag: 1.14.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -28,7 +28,7 @@ under Open Builder &rarr; Settings). If anything looks off, deactivate the plugi
 Features:
 
 * Live drag-and-drop editor with a real-time, server-rendered canvas (true WYSIWYG).
-* 30 widgets across Layout, Basic, Media, Marketing, Interactive, Dynamic and Advanced groups — including Video, Gallery, Accordion, Tabs, Counter, Progress Bar, Testimonial, Star Rating, Icon Box, Icon List, Social Icons and Google Map.
+* 31 widgets across Layout, Basic, Media, Marketing, Interactive, Dynamic and Advanced groups — including Video, Gallery, Accordion, Tabs, Counter, Progress Bar, Testimonial, Star Rating, Icon Box, Icon List, Social Icons and Google Map.
 * Theme builder: design Headers, Footers, Single, Archive, Search and 404 templates and assign them with display conditions.
 * Popups: design popups visually with triggers (load, exit-intent, scroll, click, inactivity), display conditions, frequency capping and an accessible front-end dialog.
 * Dynamic widgets: Post Title, Post Content, Site Logo, Nav Menu, and a Posts loop for archives/blogs.
@@ -66,6 +66,9 @@ As a sanitized JSON tree in post meta (`_openb_tree`), with compiled CSS cached
 in `_openb_compiled_css`.
 
 == Changelog ==
+
+= 1.14.0 =
+* Saved / Global Blocks: design a block once and reuse it across pages with the new "Global Block" widget. Create blocks under Open Builder → Blocks, then drop a Global Block on any page and pick which block to show. Editing the block updates it everywhere it appears — ideal for a shared CTA, footer band or banner. Reference cycles are guarded against.
 
 = 1.13.1 =
 * Query Loop: optional pagination. Turn on "Show pagination" to add accessible page links below the loop (uses an ?ob_page=N parameter so it works on any page). Use one paginated loop per page.

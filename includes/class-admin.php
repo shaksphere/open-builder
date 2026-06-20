@@ -68,6 +68,14 @@ class Admin {
 
 		add_submenu_page(
 			'open-builder',
+			__( 'Blocks', 'open-builder' ),
+			__( 'Blocks', 'open-builder' ),
+			'edit_pages',
+			'edit.php?post_type=' . Post_Types::CPT_BLOCK
+		);
+
+		add_submenu_page(
+			'open-builder',
 			__( 'Form Entries', 'open-builder' ),
 			__( 'Form Entries', 'open-builder' ),
 			'edit_pages',
@@ -182,6 +190,28 @@ class Admin {
 					esc_html__( 'Design', 'open-builder' ),
 					esc_url( get_edit_post_link( $pp->ID ) ),
 					esc_html__( 'Settings', 'open-builder' )
+				);
+			}
+			echo '</tbody></table>';
+		}
+
+		// Saved Blocks section.
+		echo '<h2>' . esc_html__( 'Saved Blocks', 'open-builder' ) . '</h2>';
+		echo '<p>' . esc_html__( 'Design a block once and reuse it across pages with the Global Block widget. Editing a block updates it everywhere it is used.', 'open-builder' ) . '</p>';
+		echo '<p>';
+		printf( '<a class="button button-primary" href="%s">%s</a> ', esc_url( admin_url( 'post-new.php?post_type=' . Post_Types::CPT_BLOCK ) ), esc_html__( 'New Block', 'open-builder' ) );
+		printf( '<a class="button" href="%s">%s</a>', esc_url( admin_url( 'edit.php?post_type=' . Post_Types::CPT_BLOCK ) ), esc_html__( 'All Blocks', 'open-builder' ) );
+		echo '</p>';
+
+		$blocks = get_posts( [ 'post_type' => Post_Types::CPT_BLOCK, 'numberposts' => 50 ] );
+		if ( $blocks ) {
+			echo '<table class="widefat striped" style="max-width:760px"><thead><tr><th>' . esc_html__( 'Block', 'open-builder' ) . '</th><th></th></tr></thead><tbody>';
+			foreach ( $blocks as $bl ) {
+				printf(
+					'<tr><td><strong>%s</strong></td><td><a class="button button-small button-primary" href="%s">%s</a></td></tr>',
+					esc_html( get_the_title( $bl ) ),
+					esc_url( Editor::edit_url( $bl->ID ) ),
+					esc_html__( 'Edit', 'open-builder' )
 				);
 			}
 			echo '</tbody></table>';
