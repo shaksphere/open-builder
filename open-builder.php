@@ -3,7 +3,7 @@
  * Plugin Name:       Open Builder
  * Plugin URI:        https://example.com/open-builder
  * Description:       An original, open-source drag-and-drop visual website builder for WordPress. Live editor, responsive controls, global variables, widgets, and a form builder.
- * Version:           1.13.0
+ * Version:           1.13.1
  * Requires at least: 6.2
  * Requires PHP:      8.0
  * Author:            Open Builder
@@ -18,7 +18,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'OPENB_VERSION', '1.13.0' );
+define( 'OPENB_VERSION', '1.13.1' );
 define( 'OPENB_FILE', __FILE__ );
 define( 'OPENB_DIR', plugin_dir_path( __FILE__ ) );
 define( 'OPENB_URL', plugin_dir_url( __FILE__ ) );

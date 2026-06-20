@@ -4,7 +4,7 @@ Tags: page builder, visual builder, drag and drop, editor, landing page
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.13.0
+Stable tag: 1.13.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -66,6 +66,9 @@ As a sanitized JSON tree in post meta (`_openb_tree`), with compiled CSS cached
 in `_openb_compiled_css`.
 
 == Changelog ==
+
+= 1.13.1 =
+* Query Loop: optional pagination. Turn on "Show pagination" to add accessible page links below the loop (uses an ?ob_page=N parameter so it works on any page). Use one paginated loop per page.
 
 = 1.13.0 =
 * Query Loop: a new widget that repeats a card template you design over a query. Drop a Query Loop, build one card inside it (e.g. Featured Image + Post Title + Excerpt + a "Read more" button bound to the permalink), and it renders across your chosen posts. Configure post type, number of items, columns, order, an optional taxonomy/term filter, and an offset. Each card resolves its dynamic bindings to its own post — turning Open Builder into a real CMS layout tool.

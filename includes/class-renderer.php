@@ -15,6 +15,9 @@ class Renderer {
 	/** @var Css_Generator */
 	private $css;
 
+	/** HTML appended after a loop widget's grid (its pagination), if any. */
+	private $loop_tail = '';
+
 	public function __construct( Widgets $widgets, Css_Generator $css ) {
 		$this->widgets = $widgets;
 		$this->css     = $css;
@@ -71,6 +74,13 @@ class Renderer {
 
 		$rendered = $widget->render( (array) $content, $inner_html, $node );
 
+		// Append the loop's pagination (set by render_loop) just after its grid,
+		// so the pager is a sibling of .ob-loop, not a grid cell.
+		if ( $widget->is_loop() && '' !== $this->loop_tail ) {
+			$rendered      .= $this->loop_tail;
+			$this->loop_tail = '';
+		}
+
 		// Wrapper carries the scoping class + any user CSS id/classes.
 		$classes = [ 'ob-node', 'ob-' . $type, 'ob-' . $id ];
 		if ( ! empty( $advanced['css_classes'] ) ) {
@@ -102,12 +112,22 @@ class Renderer {
 	 * resolve to that post. Uses a secondary WP_Query and restores afterwards.
 	 */
 	private function render_loop( array $node, array $content ): string {
-		$children = $node['children'] ?? [];
+		$this->loop_tail = '';
+		$children        = $node['children'] ?? [];
 		if ( empty( $children ) ) {
 			return '';
 		}
 
-		$args  = Widget_Query_Loop::build_query_args( $content );
+		$paginate = ! empty( $content['pagination'] );
+		$current  = $paginate ? self::current_loop_page() : 1;
+
+		$args = Widget_Query_Loop::build_query_args( $content );
+		if ( $paginate ) {
+			$args['no_found_rows'] = false; // we need max_num_pages
+			$args['paged']         = $current;
+			unset( $args['offset'] );       // offset + paged don't mix cleanly
+		}
+
 		$query = new \WP_Query( $args );
 
 		if ( ! $query->have_posts() ) {
@@ -126,13 +146,80 @@ class Renderer {
 			}
 		}
 
+		$total = (int) $query->max_num_pages;
+
 		wp_reset_postdata();
 		if ( null !== $outer_post ) {
 			$GLOBALS['post'] = $outer_post; // phpcs:ignore WordPress.WP.GlobalVariablesOverride
 			setup_postdata( $outer_post );
 		}
 
+		// Stash pagination to be emitted after the loop widget's grid.
+		if ( $paginate && $total > 1 ) {
+			$this->loop_tail = $this->build_loop_pagination( $total, $current );
+		}
+
 		return $html;
+	}
+
+	/** Current page for a query loop, from the ?ob_page=N query parameter. */
+	private static function current_loop_page(): int {
+		// Read-only navigation parameter; no nonce required.
+		$page = isset( $_GET['ob_page'] ) ? absint( wp_unslash( $_GET['ob_page'] ) ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		return max( 1, $page );
+	}
+
+	/**
+	 * Build an accessible, windowed pager. Links preserve the current URL and set
+	 * ?ob_page=N (page 1 drops the param). All query loops on a page share this
+	 * parameter, so a page is best designed with a single paginated loop.
+	 */
+	private function build_loop_pagination( int $total, int $current ): string {
+		$current = min( max( 1, $current ), $total );
+
+		$url = static function ( int $n ): string {
+			return esc_url( $n <= 1 ? remove_query_arg( 'ob_page' ) : add_query_arg( 'ob_page', $n ) );
+		};
+		$item = static function ( int $n ) use ( $url, $current ): string {
+			if ( $n === $current ) {
+				return sprintf( '<span class="ob-page-link is-current" aria-current="page">%d</span>', $n );
+			}
+			return sprintf( '<a class="ob-page-link" href="%s">%d</a>', $url( $n ), $n );
+		};
+
+		// Windowed page numbers: 1, …, current-1, current, current+1, …, last.
+		$pages = [];
+		foreach ( range( 1, $total ) as $n ) {
+			if ( $n <= 2 || $n > $total - 2 || abs( $n - $current ) <= 1 ) {
+				$pages[] = $n;
+			}
+		}
+		$pages = array_values( array_unique( $pages ) );
+
+		$out  = '';
+		$prev = 0;
+		foreach ( $pages as $n ) {
+			if ( $prev && $n - $prev > 1 ) {
+				$out .= '<span class="ob-page-ellipsis" aria-hidden="true">&hellip;</span>';
+			}
+			$out  .= $item( $n );
+			$prev  = $n;
+		}
+
+		$nav  = '';
+		if ( $current > 1 ) {
+			$nav .= sprintf( '<a class="ob-page-link ob-page-prev" href="%s" rel="prev">%s</a>', $url( $current - 1 ), esc_html__( '‹ Prev', 'open-builder' ) );
+		}
+		$nav .= $out;
+		if ( $current < $total ) {
+			$nav .= sprintf( '<a class="ob-page-link ob-page-next" href="%s" rel="next">%s</a>', $url( $current + 1 ), esc_html__( 'Next ›', 'open-builder' ) );
+		}
+
+		return sprintf(
+			'<nav class="ob-loop__pagination" role="navigation" aria-label="%s">%s</nav>',
+			esc_attr__( 'Pagination', 'open-builder' ),
+			$nav
+		);
 	}
 
 	/** Choose the wrapper element for a node type. */

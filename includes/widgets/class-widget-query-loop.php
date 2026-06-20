@@ -100,6 +100,13 @@ class Widget_Query_Loop extends Abstract_Widget {
 				'default' => 0,
 				'group'   => 'content',
 			],
+			'pagination' => [
+				'type'    => 'toggle',
+				'label'   => __( 'Show pagination', 'open-builder' ),
+				'default' => false,
+				'group'   => 'content',
+				'hint'    => __( 'Adds page links below the loop. Use one paginated loop per page.', 'open-builder' ),
+			],
 		];
 	}
 
