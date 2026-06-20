@@ -24,6 +24,9 @@ interface Widget_Interface {
 	/** Whether the widget can hold child nodes. */
 	public function is_container(): bool;
 
+	/** Whether the widget repeats its children over a query (a Query Loop). */
+	public function is_loop(): bool;
+
 	/** Child widget types this container accepts ([] = any, used by containers). */
 	public function accepts(): array;
 

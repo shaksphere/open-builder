@@ -50,7 +50,11 @@ class Renderer {
 		}
 
 		$inner_html = '';
-		if ( $widget->is_container() && ! empty( $node['children'] ) ) {
+		if ( $widget->is_loop() && ! Render_Context::is_editor() ) {
+			// Query Loop: repeat the card template (children) once per query result,
+			// setting each post as the current post so dynamic bindings resolve.
+			$inner_html = $this->render_loop( $node, (array) $content );
+		} elseif ( $widget->is_container() && ! empty( $node['children'] ) ) {
 			foreach ( $node['children'] as $child ) {
 				$inner_html .= $this->render_node( $child );
 			}
@@ -90,6 +94,45 @@ class Renderer {
 			esc_attr( $id ),
 			esc_attr( $type )
 		);
+	}
+
+	/**
+	 * Render a Query Loop node's children once per post of its configured query.
+	 * Each iteration sets the global post so dynamic bindings inside the card
+	 * resolve to that post. Uses a secondary WP_Query and restores afterwards.
+	 */
+	private function render_loop( array $node, array $content ): string {
+		$children = $node['children'] ?? [];
+		if ( empty( $children ) ) {
+			return '';
+		}
+
+		$args  = Widget_Query_Loop::build_query_args( $content );
+		$query = new \WP_Query( $args );
+
+		if ( ! $query->have_posts() ) {
+			wp_reset_postdata();
+			return '';
+		}
+
+		// Preserve the outer current post so nested loops don't corrupt context.
+		$outer_post = isset( $GLOBALS['post'] ) ? $GLOBALS['post'] : null;
+
+		$html = '';
+		while ( $query->have_posts() ) {
+			$query->the_post();
+			foreach ( $children as $child ) {
+				$html .= $this->render_node( $child );
+			}
+		}
+
+		wp_reset_postdata();
+		if ( null !== $outer_post ) {
+			$GLOBALS['post'] = $outer_post; // phpcs:ignore WordPress.WP.GlobalVariablesOverride
+			setup_postdata( $outer_post );
+		}
+
+		return $html;
 	}
 
 	/** Choose the wrapper element for a node type. */

@@ -4,7 +4,7 @@ Tags: page builder, visual builder, drag and drop, editor, landing page
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.12.0
+Stable tag: 1.13.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -28,11 +28,12 @@ under Open Builder &rarr; Settings). If anything looks off, deactivate the plugi
 Features:
 
 * Live drag-and-drop editor with a real-time, server-rendered canvas (true WYSIWYG).
-* 29 widgets across Layout, Basic, Media, Marketing, Interactive, Dynamic and Advanced groups — including Video, Gallery, Accordion, Tabs, Counter, Progress Bar, Testimonial, Star Rating, Icon Box, Icon List, Social Icons and Google Map.
+* 30 widgets across Layout, Basic, Media, Marketing, Interactive, Dynamic and Advanced groups — including Video, Gallery, Accordion, Tabs, Counter, Progress Bar, Testimonial, Star Rating, Icon Box, Icon List, Social Icons and Google Map.
 * Theme builder: design Headers, Footers, Single, Archive, Search and 404 templates and assign them with display conditions.
 * Popups: design popups visually with triggers (load, exit-intent, scroll, click, inactivity), display conditions, frequency capping and an accessible front-end dialog.
 * Dynamic widgets: Post Title, Post Content, Site Logo, Nav Menu, and a Posts loop for archives/blogs.
 * Dynamic data binding: bind any text/link/image control to post fields, custom fields (post meta), ACF, or site data, with a fallback.
+* Query Loop: design one card and repeat it over a query (post type, count, columns, order, taxonomy/term filter), with each card bound to its own post.
 * Per-breakpoint responsive style controls (desktop / tablet / mobile).
 * Global brand settings (colors, fonts, sizes) exposed as CSS variables.
 * Form builder with database storage, email notifications, spam honeypot, and an admin entries viewer.
@@ -65,6 +66,9 @@ As a sanitized JSON tree in post meta (`_openb_tree`), with compiled CSS cached
 in `_openb_compiled_css`.
 
 == Changelog ==
+
+= 1.13.0 =
+* Query Loop: a new widget that repeats a card template you design over a query. Drop a Query Loop, build one card inside it (e.g. Featured Image + Post Title + Excerpt + a "Read more" button bound to the permalink), and it renders across your chosen posts. Configure post type, number of items, columns, order, an optional taxonomy/term filter, and an offset. Each card resolves its dynamic bindings to its own post — turning Open Builder into a real CMS layout tool.
 
 = 1.12.0 =
 * Display conditions can now target a specific page or post, not just a whole post type. The condition dropdown lists your individual pages (and recent posts/CPT entries) as "Page: About", "Post: Hello world", etc., so a header/footer/template or popup can be assigned to exactly one page. A specific-page rule is treated as the most specific match.

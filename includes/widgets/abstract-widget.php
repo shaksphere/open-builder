@@ -16,6 +16,10 @@ abstract class Abstract_Widget implements Widget_Interface {
 		return false;
 	}
 
+	public function is_loop(): bool {
+		return false;
+	}
+
 	public function accepts(): array {
 		return [];
 	}

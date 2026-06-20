@@ -151,6 +151,21 @@ body.openb-built { overflow-x: hidden; }
 /* Editor placeholders for dynamic widgets */
 .ob-dynamic { outline: 1px dashed rgba(37,99,235,.4); outline-offset: 2px; }
 
+/* ----- Query Loop ----- */
+.ob-loop { display: grid; gap: 24px; grid-template-columns: repeat(3, 1fr); }
+.ob-loop--cols-1 { grid-template-columns: 1fr; }
+.ob-loop--cols-2 { grid-template-columns: repeat(2, 1fr); }
+.ob-loop--cols-3 { grid-template-columns: repeat(3, 1fr); }
+.ob-loop--cols-4 { grid-template-columns: repeat(4, 1fr); }
+.ob-loop--cols-5 { grid-template-columns: repeat(5, 1fr); }
+.ob-loop--cols-6 { grid-template-columns: repeat(6, 1fr); }
+@media (max-width: 1024px) {
+	.ob-loop--cols-3, .ob-loop--cols-4, .ob-loop--cols-5, .ob-loop--cols-6 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 767px) {
+	.ob-loop { grid-template-columns: 1fr !important; }
+}
+
 /* ----- Popups ----- */
 .openb-popup { position: fixed; inset: 0; z-index: 99999; display: flex; padding: 20px; }
 .openb-popup[hidden] { display: none; }
