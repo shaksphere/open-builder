@@ -192,8 +192,24 @@ class Editor {
 		// Editor preview: dynamic widgets render placeholders, not live data.
 		Render_Context::set( Render_Context::MODE_EDITOR );
 		$tree   = Post_Types::get_tree( $post_id );
+
+		// Let plugins/the theme register their front-end assets, so a Shortcode or
+		// Custom HTML widget rendered in the canvas can pull in the same CSS/JS it
+		// uses on the front end (true WYSIWYG for embeds like form plugins). We then
+		// emit ONLY the handles a widget enqueues while rendering (see the diff
+		// below) — not the whole theme — so the canvas stays focused.
+		if ( ! did_action( 'wp_enqueue_scripts' ) ) {
+			do_action( 'wp_enqueue_scripts' );
+		}
+		$styles_before  = wp_styles()->queue;
+		$scripts_before = wp_scripts()->queue;
+
 		$html   = $plugin->renderer->render_tree( $tree );
 		$css    = $plugin->renderer->compile_css( $tree, $plugin->global_styles );
+
+		// Assets a rendered widget/shortcode enqueued while building the canvas HTML.
+		$canvas_styles  = array_values( array_diff( wp_styles()->queue, $styles_before ) );
+		$canvas_scripts = array_values( array_diff( wp_scripts()->queue, $scripts_before ) );
 
 		$is_template  = self::is_chromeless( $post_id );
 		$chrome       = $is_template ? [ 'header' => 0, 'footer' => 0 ] : $this->resolve_chrome_for( $post_id );
@@ -215,6 +231,7 @@ class Editor {
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<meta name="robots" content="noindex,nofollow">
 	<link rel="stylesheet" href="<?php echo esc_url( $frontend_css ); ?>">
+	<?php if ( ! empty( $canvas_styles ) ) { wp_print_styles( $canvas_styles ); /* CSS enqueued by shortcodes/widgets in the canvas */ } ?>
 	<style id="openb-dynamic-css"><?php echo $css; // Compiled from sanitized values. ?></style>
 	<style id="openb-global-custom-css"><?php echo $plugin->global_styles->get_custom_css(); // Sanitized at save time. ?></style>
 	<style>
@@ -267,6 +284,7 @@ class Editor {
 			<div class="openb-region-add" data-ob-add="footer"><?php esc_html_e( '+ Add Footer', 'open-builder' ); ?></div>
 		<?php endif; ?>
 	<?php endif; ?>
+	<?php if ( ! empty( $canvas_scripts ) ) { wp_print_scripts( $canvas_scripts ); /* JS enqueued by shortcodes/widgets, so interactive embeds behave like the front end */ } ?>
 </body>
 </html>
 		<?php

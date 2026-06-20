@@ -4,7 +4,7 @@ Tags: page builder, visual builder, drag and drop, editor, landing page
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.19.0
+Stable tag: 1.20.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -66,6 +66,9 @@ As a sanitized JSON tree in post meta (`_openb_tree`), with compiled CSS cached
 in `_openb_compiled_css`.
 
 == Changelog ==
+
+= 1.20.0 =
+* Editor canvas WYSIWYG for shortcodes/embeds: the visual builder now loads the CSS and JavaScript that a Shortcode or Custom HTML widget enqueues, so third-party embeds (e.g. form plugins) look and behave in the editor exactly as they do on the front end. Previously the shortcode's HTML showed unstyled because the embedded plugin's assets weren't loaded in the preview iframe. Only assets a widget actually enqueues while rendering are emitted — the rest of the theme is kept out of the canvas.
 
 = 1.19.0 =
 * Form file uploads: add a "File upload" field type. Visitors can attach a file (images, PDF, Word, text, CSV by default), which is validated by real file type and size (5 MB cap), stored in the media uploads folder, linked in the entry, and attached to the notification email. The allowlist and size limit are filterable (openb_form_allowed_ext, openb_form_max_upload).
