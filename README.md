@@ -78,7 +78,8 @@ on the basics, done cleanly.
   type.
 - **Form builder** with Text, Email, Phone, Number, Textarea, Dropdown, Radio,
   Checkbox, Date and Hidden fields — database storage, email notifications, a
-  spam honeypot and an admin entries viewer.
+  spam honeypot, an admin entries viewer, and post-submit actions (redirect,
+  webhook, auto-reply to the submitter).
 - **Visual style controls**: icon button-groups, slider + unit pickers, linked
   padding/margin box, colour popover, border/shadow builders, background
   (colour/image/gradient), per-breakpoint responsive controls.

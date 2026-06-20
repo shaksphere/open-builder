@@ -190,6 +190,8 @@
 			}).then(function (res) {
 				form.classList.remove('is-submitting');
 				if (res.ok && res.data.success) {
+					var redirect = form.getAttribute('data-redirect');
+					if (redirect) { window.location.assign(redirect); return; }
 					setMessage(messageEl, res.data.message, 'success');
 					form.reset();
 				} else {

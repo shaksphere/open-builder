@@ -4,7 +4,7 @@ Tags: page builder, visual builder, drag and drop, editor, landing page
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.17.0
+Stable tag: 1.18.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -36,7 +36,7 @@ Features:
 * Query Loop: design one card and repeat it over a query (post type, count, columns, order, taxonomy/term filter), with each card bound to its own post.
 * Per-breakpoint responsive style controls (desktop / tablet / mobile).
 * Global brand settings (colors, fonts, sizes) exposed as CSS variables.
-* Form builder with database storage, email notifications, spam honeypot, and an admin entries viewer.
+* Form builder with 10 field types, database storage, email notifications, a spam honeypot, an admin entries viewer, and post-submit actions (redirect, webhook, auto-reply).
 * Custom CSS per element and custom CSS classes/IDs.
 * Built for current WordPress and PHP 8+, with security-first input handling.
 
@@ -66,6 +66,9 @@ As a sanitized JSON tree in post meta (`_openb_tree`), with compiled CSS cached
 in `_openb_compiled_css`.
 
 == Changelog ==
+
+= 1.18.0 =
+* Form actions: after a submission you can now redirect to a thank-you URL, POST the entry as JSON to a webhook, and/or send an auto-reply email to the submitter (subject + message, sent to the first email field). All configured per form in the Form widget's settings; the existing notification email and database storage still apply.
 
 = 1.17.0 =
 * Form fields: the Form widget gains Dropdown, Radio buttons, Checkboxes, Number, Date and Hidden field types (alongside Text, Email, Phone and Textarea). Choice fields take a comma-separated option list; fields can have a placeholder and a default value. Choices and required groups are validated on the server against the saved schema.

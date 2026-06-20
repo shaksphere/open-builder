@@ -71,6 +71,39 @@ class Widget_Form extends Abstract_Widget {
 				'default' => '',
 				'group'   => 'content',
 			],
+			'redirect_url' => [
+				'type'    => 'text',
+				'label'   => __( 'Redirect URL after submit', 'open-builder' ),
+				'default' => '',
+				'hint'    => __( 'Leave blank to show the success message instead.', 'open-builder' ),
+				'group'   => 'content',
+			],
+			'webhook_url' => [
+				'type'    => 'text',
+				'label'   => __( 'Webhook URL', 'open-builder' ),
+				'default' => '',
+				'hint'    => __( 'On submit, the entry is POSTed as JSON to this URL.', 'open-builder' ),
+				'group'   => 'content',
+			],
+			'autoresponder' => [
+				'type'    => 'toggle',
+				'label'   => __( 'Send auto-reply to submitter', 'open-builder' ),
+				'default' => false,
+				'hint'    => __( 'Replies to the first email field on the form.', 'open-builder' ),
+				'group'   => 'content',
+			],
+			'autoresponder_subject' => [
+				'type'    => 'text',
+				'label'   => __( 'Auto-reply subject', 'open-builder' ),
+				'default' => 'Thanks for your message',
+				'group'   => 'content',
+			],
+			'autoresponder_message' => [
+				'type'    => 'textarea',
+				'label'   => __( 'Auto-reply message', 'open-builder' ),
+				'default' => 'Thanks — we received your message and will be in touch soon.',
+				'group'   => 'content',
+			],
 		];
 	}
 
@@ -100,8 +133,12 @@ class Widget_Form extends Abstract_Widget {
 		// Per-form nonce so submissions are CSRF-protected.
 		$nonce = wp_create_nonce( 'openb_form_' . $form_id );
 
+		// Optional client-side redirect after a successful submit.
+		$redirect      = trim( (string) $this->val( $content, 'redirect_url', '' ) );
+		$redirect_attr = '' !== $redirect ? sprintf( ' data-redirect="%s"', esc_url( $redirect ) ) : '';
+
 		return sprintf(
-			'<form class="ob-form" data-ob-form="%1$s" data-nonce="%2$s">
+			'<form class="ob-form" data-ob-form="%1$s" data-nonce="%2$s"%5$s>
 				%3$s
 				<div class="ob-form__actions"><button type="submit" class="ob-button ob-button--primary">%4$s</button></div>
 				<div class="ob-form__message" role="status" aria-live="polite"></div>
@@ -109,7 +146,8 @@ class Widget_Form extends Abstract_Widget {
 			esc_attr( $form_id ),
 			esc_attr( $nonce ),
 			$fields_html,
-			$submit
+			$submit,
+			$redirect_attr
 		);
 	}
 
