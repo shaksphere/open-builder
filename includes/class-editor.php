@@ -90,6 +90,7 @@ class Editor {
 			'globalCss'    => $plugin->global_styles->get_custom_css(),
 			'seoActive'    => Frontend::seo_plugin_active(),
 			'dynamicSources' => Dynamic_Tags::sources_for_editor(),
+			'breakpoints'  => Css_Generator::breakpoints(),
 		];
 
 		// Make the WordPress media library available inside our custom document

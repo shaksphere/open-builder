@@ -10,17 +10,53 @@ defined( 'ABSPATH' ) || exit;
  */
 class Css_Generator {
 
-	/** Breakpoint max-widths in px. Desktop is the unqueried base. */
+	/** Default breakpoint max-widths in px. Desktop is the unqueried base. */
 	const BREAKPOINTS = [
 		'tablet' => 1024,
 		'mobile' => 767,
 	];
 
+	/** Option storing the site's configured breakpoints. */
+	const OPTION_BREAKPOINTS = 'openb_breakpoints';
+
 	/** @var Global_Styles */
 	private $globals;
 
+	/** @var array{tablet:int,mobile:int} Resolved breakpoints for this instance. */
+	private $bp;
+
 	public function __construct( Global_Styles $globals ) {
 		$this->globals = $globals;
+		$this->bp      = self::breakpoints();
+	}
+
+	/**
+	 * Site breakpoints, read from the option and clamped to sane ranges with
+	 * mobile strictly below tablet. Falls back to the defaults.
+	 *
+	 * @return array{tablet:int,mobile:int}
+	 */
+	public static function breakpoints(): array {
+		$saved = get_option( self::OPTION_BREAKPOINTS, [] );
+		return self::sanitize_breakpoints( is_array( $saved ) ? $saved : [] );
+	}
+
+	/**
+	 * Clamp incoming breakpoint values. tablet 480–1600, mobile 320–1400, and
+	 * mobile always at least 40px below tablet so the bands never collide.
+	 *
+	 * @return array{tablet:int,mobile:int}
+	 */
+	public static function sanitize_breakpoints( array $in ): array {
+		$tablet = isset( $in['tablet'] ) && is_numeric( $in['tablet'] ) ? (int) $in['tablet'] : self::BREAKPOINTS['tablet'];
+		$mobile = isset( $in['mobile'] ) && is_numeric( $in['mobile'] ) ? (int) $in['mobile'] : self::BREAKPOINTS['mobile'];
+
+		$tablet = max( 480, min( 1600, $tablet ) );
+		$mobile = max( 320, min( 1400, $mobile ) );
+		if ( $mobile >= $tablet ) {
+			$mobile = max( 320, $tablet - 40 );
+		}
+		return [ 'tablet' => $tablet, 'mobile' => $mobile ];
 	}
 
 	/**
@@ -36,10 +72,10 @@ class Css_Generator {
 
 		$css = $base;
 		if ( '' !== $tablet ) {
-			$css .= sprintf( '@media(max-width:%dpx){%s}', self::BREAKPOINTS['tablet'], $tablet );
+			$css .= sprintf( '@media(max-width:%dpx){%s}', $this->bp['tablet'], $tablet );
 		}
 		if ( '' !== $mobile ) {
-			$css .= sprintf( '@media(max-width:%dpx){%s}', self::BREAKPOINTS['mobile'], $mobile );
+			$css .= sprintf( '@media(max-width:%dpx){%s}', $this->bp['mobile'], $mobile );
 		}
 		return $css;
 	}
@@ -79,13 +115,13 @@ class Css_Generator {
 			// independent: desktop >1024, tablet 768–1024, mobile <768.
 			$adv = $settings['advanced'] ?? [];
 			if ( ! empty( $adv['hide_desktop'] ) ) {
-				$base .= sprintf( '@media(min-width:%dpx){%s{display:none!important;}}', self::BREAKPOINTS['tablet'] + 1, $selector );
+				$base .= sprintf( '@media(min-width:%dpx){%s{display:none!important;}}', $this->bp['tablet'] + 1, $selector );
 			}
 			if ( ! empty( $adv['hide_tablet'] ) ) {
-				$base .= sprintf( '@media(min-width:%dpx) and (max-width:%dpx){%s{display:none!important;}}', self::BREAKPOINTS['mobile'] + 1, self::BREAKPOINTS['tablet'], $selector );
+				$base .= sprintf( '@media(min-width:%dpx) and (max-width:%dpx){%s{display:none!important;}}', $this->bp['mobile'] + 1, $this->bp['tablet'], $selector );
 			}
 			if ( ! empty( $adv['hide_mobile'] ) ) {
-				$base .= sprintf( '@media(max-width:%dpx){%s{display:none!important;}}', self::BREAKPOINTS['mobile'], $selector );
+				$base .= sprintf( '@media(max-width:%dpx){%s{display:none!important;}}', $this->bp['mobile'], $selector );
 			}
 
 			if ( ! empty( $node['children'] ) ) {
@@ -167,7 +203,7 @@ class Css_Generator {
 	public function responsive_base(): string {
 		return sprintf(
 			'@media(max-width:%dpx){.ob-columns{flex-direction:column;}.ob-columns>.ob-node{flex-basis:100%%;}}',
-			self::BREAKPOINTS['mobile']
+			$this->bp['mobile']
 		);
 	}
 }

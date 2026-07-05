@@ -26,6 +26,22 @@ class Admin {
 			'sanitize_callback' => 'rest_sanitize_boolean',
 			'default'           => false,
 		] );
+
+		register_setting( 'openb_settings', Css_Generator::OPTION_BREAKPOINTS, [
+			'type'              => 'array',
+			'sanitize_callback' => [ Css_Generator::class, 'sanitize_breakpoints' ],
+			'default'           => Css_Generator::BREAKPOINTS,
+		] );
+
+		// Breakpoints feed compiled CSS, so cached files must rebuild on change.
+		add_action( 'update_option_' . Css_Generator::OPTION_BREAKPOINTS, [ $this, 'flush_css_cache' ] );
+		add_action( 'add_option_' . Css_Generator::OPTION_BREAKPOINTS, [ $this, 'flush_css_cache' ] );
+	}
+
+	/** Drop all cached CSS files; they lazily rebuild with the new breakpoints. */
+	public function flush_css_cache(): void {
+		Plugin::instance()->css_store->flush_all();
+		Plugin::instance()->css_store->rebuild_global();
 	}
 
 	/** Flush all cached CSS files; they lazily rebuild on next visit/save. */
@@ -110,6 +126,27 @@ class Admin {
 		);
 		echo '<p class="description">' . esc_html__( 'Off (recommended): Open Builder only controls pages you build with it, plus archive/search/404 pages that have a matching template. Pages built with your theme or another builder (e.g. Elementor) are never altered.', 'open-builder' ) . '</p>';
 		echo '<p class="description">' . esc_html__( 'On (advanced): your Open Builder header/footer and templates apply to every page, replacing the output of your theme and other builders. Only enable this once your whole site is built with Open Builder.', 'open-builder' ) . '</p>';
+		echo '</td></tr>';
+		echo '</tbody></table>';
+
+		$bp = Css_Generator::breakpoints();
+		echo '<h2>' . esc_html__( 'Responsive Breakpoints', 'open-builder' ) . '</h2>';
+		echo '<table class="form-table" role="presentation"><tbody>';
+		echo '<tr><th scope="row"><label for="openb-bp-tablet">' . esc_html__( 'Tablet (max width)', 'open-builder' ) . '</label></th><td>';
+		printf(
+			'<input type="number" id="openb-bp-tablet" name="%s[tablet]" value="%d" min="480" max="1600" step="1" class="small-text"> px',
+			esc_attr( Css_Generator::OPTION_BREAKPOINTS ),
+			(int) $bp['tablet']
+		);
+		echo '<p class="description">' . esc_html__( 'Tablet styles apply at or below this width. Default 1024.', 'open-builder' ) . '</p>';
+		echo '</td></tr>';
+		echo '<tr><th scope="row"><label for="openb-bp-mobile">' . esc_html__( 'Mobile (max width)', 'open-builder' ) . '</label></th><td>';
+		printf(
+			'<input type="number" id="openb-bp-mobile" name="%s[mobile]" value="%d" min="320" max="1400" step="1" class="small-text"> px',
+			esc_attr( Css_Generator::OPTION_BREAKPOINTS ),
+			(int) $bp['mobile']
+		);
+		echo '<p class="description">' . esc_html__( 'Mobile styles apply at or below this width (must be below the tablet width). Default 767.', 'open-builder' ) . '</p>';
 		echo '</td></tr>';
 		echo '</tbody></table>';
 

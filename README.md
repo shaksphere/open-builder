@@ -83,7 +83,8 @@ on the basics, done cleanly.
   submitter).
 - **Visual style controls**: icon button-groups, slider + unit pickers, linked
   padding/margin box, colour popover, border/shadow builders, background
-  (colour/image/gradient), per-breakpoint responsive controls.
+  (colour/image/gradient), per-breakpoint responsive controls with
+  configurable tablet/mobile breakpoint widths.
 - **Layers tree** with drag-to-reorder/re-nest, inline text editing, right-click
   context menu, copy/paste and keyboard shortcuts.
 - **Theme builder**: design Headers, Footers, Single, Archive, Search and 404
@@ -181,8 +182,7 @@ To stay lightweight, some larger or more niche capabilities are intentionally
   template type) — only useful for online stores. Parked as a possible future
   add-on so the core stays lean for the majority who don't run a shop.
 - Entrance / scroll animations and sticky elements.
-- More form field types and actions (webhooks, redirects, autoresponders).
-- Custom breakpoints; loading only the assets a page actually uses.
+- Loading only the assets a page actually uses.
 
 If one of these would be valuable to you, please open an issue — interest helps
 prioritise what's worth adding without bloating the plugin.

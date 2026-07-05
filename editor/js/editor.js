@@ -1863,6 +1863,12 @@
 			area.classList.remove('is-tablet', 'is-mobile');
 			if (device === 'tablet') area.classList.add('is-tablet');
 			if (device === 'mobile') area.classList.add('is-mobile');
+			// Preview at the configured breakpoint width so the canvas switches
+			// styles exactly where the front end does (matches the CSS media queries).
+			var bp = BOOT.breakpoints || {};
+			area.style.maxWidth = device === 'desktop'
+				? ''
+				: (parseInt(bp[device], 10) || (device === 'tablet' ? 1024 : 767)) + 'px';
 		}
 		if (inspectorTab === 'style') renderInspector();
 	}

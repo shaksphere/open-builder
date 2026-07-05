@@ -4,7 +4,7 @@ Tags: page builder, visual builder, drag and drop, editor, landing page
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.20.0
+Stable tag: 1.21.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -34,7 +34,7 @@ Features:
 * Dynamic widgets: Post Title, Post Content, Site Logo, Nav Menu, and a Posts loop for archives/blogs.
 * Dynamic data binding: bind any text/link/image control to post fields, custom fields (post meta), ACF, or site data, with a fallback.
 * Query Loop: design one card and repeat it over a query (post type, count, columns, order, taxonomy/term filter), with each card bound to its own post.
-* Per-breakpoint responsive style controls (desktop / tablet / mobile).
+* Per-breakpoint responsive style controls (desktop / tablet / mobile), with configurable tablet/mobile breakpoint widths.
 * Global brand settings (colors, fonts, sizes) exposed as CSS variables.
 * Form builder with 11 field types (incl. file upload), database storage, email notifications, a spam honeypot, an admin entries viewer, and post-submit actions (redirect, webhook, auto-reply).
 * Custom CSS per element and custom CSS classes/IDs.
@@ -66,6 +66,9 @@ As a sanitized JSON tree in post meta (`_openb_tree`), with compiled CSS cached
 in `_openb_compiled_css`.
 
 == Changelog ==
+
+= 1.21.0 =
+* Custom breakpoints: set your own Tablet and Mobile max-widths under Open Builder → Settings → Responsive Breakpoints (defaults 1024 / 767). All responsive styles, hide-on-device rules and column stacking use your values, and the editor's device-preview buttons size the canvas to match, so the builder switches layouts exactly where the front end does. Values are clamped to safe ranges (mobile always below tablet); changing them rebuilds the cached CSS automatically.
 
 = 1.20.0 =
 * Editor canvas WYSIWYG for shortcodes/embeds: the visual builder now loads the CSS and JavaScript that a Shortcode or Custom HTML widget enqueues, so third-party embeds (e.g. form plugins) look and behave in the editor exactly as they do on the front end. Previously the shortcode's HTML showed unstyled because the embedded plugin's assets weren't loaded in the preview iframe. Only assets a widget actually enqueues while rendering are emitted — the rest of the theme is kept out of the canvas.
