@@ -655,11 +655,66 @@
 		var main = el('div', { class: 'openb-main' });
 		main.appendChild(buildLeftPanel());
 		main.appendChild(buildCanvasArea());
+		main.appendChild(buildRightResizer());
 		main.appendChild(buildRightPanel());
 		app.appendChild(main);
+		restoreInspectorWidth();
 
 		// Global drag end cleanup.
 		document.addEventListener('dragend', function () { state.drag = null; });
+	}
+
+	/* Drag handle between the canvas and the inspector panel — lets the panel
+	   be widened (useful for the code editor / rich text controls). A sibling
+	   of #openb-inspector, not a child, so renderInspector()'s innerHTML reset
+	   never touches it. Uses Pointer Capture so dragging over the canvas
+	   iframe (a separate document) doesn't interrupt the drag. */
+	function buildRightResizer() {
+		var handle = el('div', { class: 'openb-right-resizer', title: 'Drag to resize' });
+		var dragging = false, startX = 0, startWidth = 0;
+
+		handle.addEventListener('pointerdown', function (e) {
+			e.preventDefault();
+			var panel = document.getElementById('openb-inspector');
+			if (!panel) return;
+			dragging = true;
+			startX = e.clientX;
+			startWidth = panel.getBoundingClientRect().width;
+			handle.setPointerCapture(e.pointerId);
+			document.body.classList.add('openb-resizing');
+		});
+		handle.addEventListener('pointermove', function (e) {
+			if (!dragging) return;
+			var panel = document.getElementById('openb-inspector');
+			if (!panel) return;
+			var delta = startX - e.clientX; // panel is on the right: dragging left widens it
+			var maxW = Math.min(900, window.innerWidth - 460);
+			var w = Math.max(260, Math.min(maxW, startWidth + delta));
+			panel.style.width = w + 'px';
+			panel.style.flexBasis = w + 'px';
+		});
+		function endDrag() {
+			if (!dragging) return;
+			dragging = false;
+			document.body.classList.remove('openb-resizing');
+			var panel = document.getElementById('openb-inspector');
+			if (panel) { try { localStorage.setItem('openb_inspector_width', String(panel.getBoundingClientRect().width)); } catch (e) {} }
+		}
+		handle.addEventListener('pointerup', endDrag);
+		handle.addEventListener('pointercancel', endDrag);
+
+		return handle;
+	}
+	function restoreInspectorWidth() {
+		var saved;
+		try { saved = parseFloat(localStorage.getItem('openb_inspector_width')); } catch (e) {}
+		if (!saved || saved <= 0) return;
+		var panel = document.getElementById('openb-inspector');
+		if (!panel) return;
+		var maxW = Math.min(900, window.innerWidth - 460);
+		var w = Math.max(260, Math.min(maxW, saved));
+		panel.style.width = w + 'px';
+		panel.style.flexBasis = w + 'px';
 	}
 
 	function buildTopbar() {
@@ -1193,9 +1248,16 @@
 			} else if (open && !/^<(?:!--|!DOCTYPE)/i.test(tok)) {
 				var tagName = open[1].toLowerCase();
 				var selfClose = /\/\s*>$/.test(tok) || HTML_VOID_TAGS[tagName];
-				if (!selfClose && tok.slice(0, 8).toLowerCase() !== '<script ' && tok.slice(0, 7).toLowerCase() !== '<style ') {
-					// Whole script/style blocks are matched as one token above, so a
-					// lone "<script...>" tag token here only occurs if it's unclosed.
+				// A matched <script>/<style> token that ALSO ends with its own closing
+				// tag is the whole balanced block from the dedicated regex alternative
+				// (attrs/CSS/JS bodies can contain '<' or '>' freely, e.g. `<style>` with
+				// no attributes at all) — not a bare open tag, so don't track it as one.
+				// If it's genuinely unclosed, the dedicated alternative never matches in
+				// the first place and this token IS just the bare open tag, which we do
+				// want on the stack so the "unclosed" report below is correct.
+				var isBalancedRawBlock = (tagName === 'script' || tagName === 'style') &&
+					new RegExp('<\\/' + tagName + '\\s*>$', 'i').test(tok);
+				if (!selfClose && !isBalancedRawBlock) {
 					stack.push({ tag: tagName, line: line });
 				}
 			}

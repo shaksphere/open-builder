@@ -112,6 +112,12 @@ html, body { height: 100%; margin: 0; }
 .openb-right { border-right: none; border-left: 1px solid var(--ob-border); }
 .openb-canvasarea { flex: 1 1 auto; min-width: 0; display: flex; }
 
+/* Inspector resize handle */
+.openb-right-resizer { flex: 0 0 5px; width: 5px; cursor: col-resize; background: transparent; touch-action: none; }
+.openb-right-resizer:hover, .openb-right-resizer:active { background: rgba(37, 99, 235, .18); }
+body.openb-resizing { cursor: col-resize !important; user-select: none; }
+body.openb-resizing .openb-canvas-frame { pointer-events: none; }
+
 /* Tabs */
 .openb-tabs, .openb-subtabs { display: flex; border-bottom: 1px solid var(--ob-border); flex: 0 0 auto; }
 .openb-tab, .openb-subtab {
