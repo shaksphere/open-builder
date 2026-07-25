@@ -17,6 +17,55 @@ class Admin {
 		add_filter( 'post_row_actions', [ $this, 'row_action' ], 10, 2 );
 		add_action( 'admin_post_openb_flush_css', [ $this, 'handle_flush_css' ] );
 		add_action( 'admin_init', [ $this, 'register_settings' ] );
+
+		// "Content-only" toggle on the user profile screen (admins editing users).
+		add_action( 'edit_user_profile', [ $this, 'user_content_only_field' ] );
+		add_action( 'show_user_profile', [ $this, 'user_content_only_field' ] );
+		add_action( 'edit_user_profile_update', [ $this, 'save_user_content_only' ] );
+		add_action( 'personal_options_update', [ $this, 'save_user_content_only' ] );
+	}
+
+	/**
+	 * Render the "content-only" checkbox on a user's profile. Only shown to admins
+	 * (who can edit users) so a restricted client can't see or flip their own flag.
+	 */
+	public function user_content_only_field( \WP_User $user ): void {
+		if ( ! current_user_can( 'edit_users' ) ) {
+			return;
+		}
+		$checked = Security::is_content_only( $user->ID );
+		?>
+		<h2><?php esc_html_e( 'Open Builder', 'open-builder' ); ?></h2>
+		<table class="form-table" role="presentation">
+			<tr>
+				<th scope="row"><?php esc_html_e( 'Editing access', 'open-builder' ); ?></th>
+				<td>
+					<label>
+						<input type="checkbox" name="openb_content_only" value="1" <?php checked( $checked ); ?>>
+						<?php esc_html_e( 'Content-only editing (can change text, images and links, but not the page layout)', 'open-builder' ); ?>
+					</label>
+					<p class="description"><?php esc_html_e( 'Use this when handing a finished site to a client so they can update content without breaking the design.', 'open-builder' ); ?></p>
+					<?php wp_nonce_field( 'openb_content_only_' . $user->ID, 'openb_content_only_nonce' ); ?>
+				</td>
+			</tr>
+		</table>
+		<?php
+	}
+
+	/** Persist the content-only flag. Only admins may change it. */
+	public function save_user_content_only( int $user_id ): void {
+		if ( ! current_user_can( 'edit_users' ) ) {
+			return;
+		}
+		$nonce = isset( $_POST['openb_content_only_nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['openb_content_only_nonce'] ) ) : '';
+		if ( ! wp_verify_nonce( $nonce, 'openb_content_only_' . $user_id ) ) {
+			return;
+		}
+		if ( ! empty( $_POST['openb_content_only'] ) ) {
+			update_user_meta( $user_id, Security::META_CONTENT_ONLY, 1 );
+		} else {
+			delete_user_meta( $user_id, Security::META_CONTENT_ONLY );
+		}
 	}
 
 	/** Register plugin settings (Settings API). */

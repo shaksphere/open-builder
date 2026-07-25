@@ -74,6 +74,29 @@ class Rest {
 			],
 		] );
 
+		register_rest_route( self::NS, '/apply-kit', [
+			'methods'             => 'POST',
+			'callback'            => [ $this, 'apply_kit' ],
+			'permission_callback' => [ $this, 'can_manage' ],
+		] );
+
+		register_rest_route( self::NS, '/revisions', [
+			'methods'             => 'POST',
+			'callback'            => [ $this, 'list_revisions' ],
+			'permission_callback' => [ $this, 'can_edit_post' ],
+			'args'                => [ 'post_id' => [ 'required' => true, 'type' => 'integer' ] ],
+		] );
+
+		register_rest_route( self::NS, '/revision', [
+			'methods'             => 'POST',
+			'callback'            => [ $this, 'get_revision' ],
+			'permission_callback' => [ $this, 'can_edit_post' ],
+			'args'                => [
+				'post_id' => [ 'required' => true, 'type' => 'integer' ],
+				'index'   => [ 'required' => true, 'type' => 'integer' ],
+			],
+		] );
+
 		register_rest_route( self::NS, '/form', [
 			'methods'             => 'POST',
 			'callback'            => [ $this, 'submit_form' ],
@@ -110,7 +133,22 @@ class Rest {
 	public function save( \WP_REST_Request $request ): \WP_REST_Response {
 		$post_id = absint( $request->get_param( 'post_id' ) );
 		$tree    = $this->read_tree( $request );
-		$css     = $this->renderer->compile_css( $tree, $this->globals );
+
+		// Content-only users may edit values but not restructure the page. Reject
+		// (rather than silently drop) a save that adds/removes/moves/retypes nodes,
+		// so the UI guardrail can't be bypassed via a crafted request.
+		if ( Security::is_content_only() ) {
+			$existing = Post_Types::get_tree( $post_id );
+			if ( ! Security::same_structure( $existing, $tree ) ) {
+				return new \WP_REST_Response( [
+					'success' => false,
+					'code'    => 'structure_locked',
+					'message' => __( 'Your account can edit content but not change the page layout.', 'open-builder' ),
+				], 403 );
+			}
+		}
+
+		$css = $this->renderer->compile_css( $tree, $this->globals );
 
 		Post_Types::save_tree( $post_id, $tree, $css );
 
@@ -135,6 +173,13 @@ class Rest {
 			if ( $clean !== $current ) {
 				wp_update_post( [ 'ID' => $post_id, 'post_title' => $clean ] );
 			}
+		}
+
+		// Snapshot a restore point on manual saves only (autosaves pass no flag),
+		// so the History list is a series of deliberate versions, not noise.
+		if ( $request->get_param( 'snapshot' ) ) {
+			$user = wp_get_current_user();
+			Post_Types::push_revision( $post_id, $tree, $user && $user->display_name ? $user->display_name : __( 'Someone', 'open-builder' ) );
 		}
 
 		return new \WP_REST_Response( [
@@ -243,6 +288,146 @@ class Rest {
 			'block_id' => (int) $post_id,
 			'title'    => $title,
 			'edit_url' => Editor::edit_url( (int) $post_id ),
+		], 200 );
+	}
+
+	/**
+	 * Apply a Site Kit in one shot: save the brand preset (colors/fonts), create
+	 * header + footer templates (only when the user doesn't already have one of
+	 * that type, so nothing is clobbered), and create a set of published pages
+	 * from the kit's page trees. The current page's own layout is applied
+	 * client-side by the editor; this handles everything that spans the site.
+	 *
+	 * All trees are sanitized with the same pipeline as a normal save.
+	 */
+	public function apply_kit( \WP_REST_Request $request ): \WP_REST_Response {
+		// 1) Brand preset.
+		$globals = $request->get_param( 'globals' );
+		if ( is_string( $globals ) ) {
+			$globals = json_decode( $globals, true );
+		}
+		if ( is_array( $globals ) && ! empty( $globals ) ) {
+			$this->globals->save( $globals );
+			Plugin::instance()->css_store->rebuild_global();
+		}
+
+		// 2) Header + footer templates (skip if one already exists of that type).
+		$chrome = [];
+		foreach ( [ 'header', 'footer' ] as $type ) {
+			$tree = $request->get_param( $type );
+			if ( is_string( $tree ) ) {
+				$tree = json_decode( $tree, true );
+			}
+			if ( ! is_array( $tree ) || empty( $tree ) ) {
+				continue;
+			}
+			if ( Theme_Builder::has_template( $type ) ) {
+				$chrome[ $type ] = 'kept';
+				continue;
+			}
+			$id = $this->create_template_with_tree( $type, $tree );
+			$chrome[ $type ] = $id ? 'created' : 'failed';
+		}
+
+		// 3) Pages.
+		$pages_param = $request->get_param( 'pages' );
+		if ( is_string( $pages_param ) ) {
+			$pages_param = json_decode( $pages_param, true );
+		}
+		$pages_out = [];
+		if ( is_array( $pages_param ) ) {
+			foreach ( array_slice( $pages_param, 0, 10 ) as $page ) {
+				if ( ! is_array( $page ) ) {
+					continue;
+				}
+				$title = sanitize_text_field( (string) ( $page['title'] ?? __( 'Page', 'open-builder' ) ) );
+				$tree  = Security::sanitize_tree( is_array( $page['tree'] ?? null ) ? $page['tree'] : [] );
+				$post_id = wp_insert_post( [
+					'post_type'   => 'page',
+					'post_status' => 'publish',
+					'post_title'  => $title,
+				], true );
+				if ( is_wp_error( $post_id ) || ! $post_id ) {
+					continue;
+				}
+				// save_tree flags the page builder-enabled from the non-empty tree.
+				Post_Types::save_tree( (int) $post_id, $tree, $this->renderer->compile_css( $tree, $this->globals ) );
+				Plugin::instance()->css_store->write_page( (int) $post_id, $this->renderer->compile_node_css( $tree ) );
+				$pages_out[] = [
+					'title'    => $title,
+					'id'       => (int) $post_id,
+					'edit_url' => Editor::edit_url( (int) $post_id ),
+					'view_url' => get_permalink( (int) $post_id ),
+				];
+			}
+		}
+
+		return new \WP_REST_Response( [
+			'success' => true,
+			'chrome'  => $chrome,
+			'pages'   => $pages_out,
+			'globals' => $this->globals->get(),
+		], 200 );
+	}
+
+	/**
+	 * Create a theme-builder template of $type, pre-filled with a sanitized tree
+	 * and assigned entire-site. Returns the new post id, or 0 on failure.
+	 */
+	private function create_template_with_tree( string $type, array $tree ): int {
+		$types = Theme_Builder::types();
+		if ( ! array_key_exists( $type, $types ) ) {
+			return 0;
+		}
+		$post_id = wp_insert_post( [
+			'post_type'   => Post_Types::CPT_TEMPLATE,
+			'post_status' => 'publish',
+			/* translators: %s: template type label (e.g. Header) */
+			'post_title'  => sprintf( __( '%s — Entire Site', 'open-builder' ), $types[ $type ] ),
+		], true );
+		if ( is_wp_error( $post_id ) || ! $post_id ) {
+			return 0;
+		}
+		update_post_meta( $post_id, Theme_Builder::META_TYPE, $type );
+		update_post_meta( $post_id, Theme_Builder::META_CONDITIONS, [ [ 'relation' => 'include', 'rule' => 'entire_site' ] ] );
+
+		$clean = Security::sanitize_tree( $tree );
+		Post_Types::save_tree( (int) $post_id, $clean, $this->renderer->compile_css( $clean, $this->globals ) );
+		Plugin::instance()->css_store->write_page( (int) $post_id, $this->renderer->compile_node_css( $clean ) );
+		return (int) $post_id;
+	}
+
+	/** List a page's saved restore points (metadata only — trees omitted for weight). */
+	public function list_revisions( \WP_REST_Request $request ): \WP_REST_Response {
+		$post_id   = absint( $request->get_param( 'post_id' ) );
+		$revisions = Post_Types::get_revisions( $post_id );
+		$out = [];
+		foreach ( $revisions as $i => $rev ) {
+			$t = (int) ( $rev['t'] ?? 0 );
+			$out[] = [
+				'index'  => $i,
+				'time'   => $t,
+				'when'   => $t ? human_time_diff( $t, time() ) : '',
+				'date'   => $t ? wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $t ) : '',
+				'author' => (string) ( $rev['u'] ?? '' ),
+			];
+		}
+		// Newest first for display.
+		$out = array_reverse( $out );
+		return new \WP_REST_Response( [ 'success' => true, 'revisions' => $out ], 200 );
+	}
+
+	/** Return the sanitized tree for one revision so the editor can load it. */
+	public function get_revision( \WP_REST_Request $request ): \WP_REST_Response {
+		$post_id   = absint( $request->get_param( 'post_id' ) );
+		$index     = (int) $request->get_param( 'index' );
+		$revisions = Post_Types::get_revisions( $post_id );
+		if ( ! isset( $revisions[ $index ] ) || ! is_array( $revisions[ $index ]['tree'] ?? null ) ) {
+			return new \WP_REST_Response( [ 'success' => false, 'message' => __( 'Revision not found.', 'open-builder' ) ], 404 );
+		}
+		return new \WP_REST_Response( [
+			'success' => true,
+			'tree'    => Security::sanitize_tree( $revisions[ $index ]['tree'] ),
 		], 200 );
 	}
 

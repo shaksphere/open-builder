@@ -95,9 +95,29 @@ class Css_Generator {
 
 			// User style maps per breakpoint.
 			$style = $settings['style'] ?? [];
+
+			// A column with an explicit width opts out of the equal-share flex
+			// default (see structural_css 'columns' case) so ratios like 30/70 are
+			// possible. !important is needed because the opt-out must beat the
+			// higher-specificity `.ob-{parentId}>.ob-node` rule that sets the
+			// equal-share default on every child regardless of source order.
+			if ( 'column' === $type ) {
+				$base   .= $this->column_width_override( $selector, $style['desktop'] ?? [] );
+				$tablet .= $this->column_width_override( $selector, $style['tablet'] ?? [] );
+				$mobile .= $this->column_width_override( $selector, $style['mobile'] ?? [] );
+			}
+
 			$base   .= $this->rules( $selector, $style['desktop'] ?? [] );
 			$tablet .= $this->rules( $selector, $style['tablet'] ?? [] );
 			$mobile .= $this->rules( $selector, $style['mobile'] ?? [] );
+
+			// Hover state: a flat declaration map (not a breakpoint), applied at
+			// every device since :hover is meaningless to gate by viewport width.
+			$hover = $style['hover'] ?? [];
+			if ( ! empty( $hover ) && is_array( $hover ) ) {
+				$base .= sprintf( '%s{transition:color .2s ease,background-color .2s ease,border-color .2s ease,opacity .2s ease,transform .2s ease,box-shadow .2s ease;}', $selector );
+				$base .= $this->rules( $selector . ':hover', $hover );
+			}
 
 			// Background (separate from the style map so url() can be controlled).
 			$bg = $settings['background'] ?? [];
@@ -180,6 +200,22 @@ class Css_Generator {
 				break;
 		}
 		return $decls;
+	}
+
+	/**
+	 * When a column has an explicit width set (via the Style > Size control),
+	 * take it out of the parent's equal-share flex rule so the width sticks:
+	 * grow/shrink off, basis auto (so `width` — emitted separately by rules())
+	 * is what sizes it. Columns without an explicit width are untouched and
+	 * keep splitting the row evenly, so mixed rows (one fixed + rest equal)
+	 * work as expected.
+	 */
+	private function column_width_override( string $selector, array $style ): string {
+		$w = isset( $style['width'] ) ? Security::sanitize_css_value( (string) $style['width'] ) : '';
+		if ( '' === $w ) {
+			return '';
+		}
+		return sprintf( '%s{flex:0 0 auto!important;min-width:0;max-width:100%%;}', $selector );
 	}
 
 	/** Built-in layout behaviour that isn't expressed through style controls. */

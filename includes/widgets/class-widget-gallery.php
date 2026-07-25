@@ -25,6 +25,13 @@ class Widget_Gallery extends Abstract_Widget {
 				'default' => '3',
 				'group'   => 'content',
 			],
+			'layout' => [
+				'type'    => 'select',
+				'label'   => __( 'Layout', 'open-builder' ),
+				'choices' => [ 'grid' => 'Grid (uniform)', 'masonry' => 'Masonry' ],
+				'default' => 'grid',
+				'group'   => 'content',
+			],
 			'gap' => [
 				'type'    => 'text',
 				'label'   => __( 'Gap', 'open-builder' ),
@@ -33,8 +40,9 @@ class Widget_Gallery extends Abstract_Widget {
 			],
 			'lightbox' => [
 				'type'    => 'toggle',
-				'label'   => __( 'Link to full size', 'open-builder' ),
+				'label'   => __( 'Open in lightbox', 'open-builder' ),
 				'default' => true,
+				'hint'    => __( 'Click opens the full image in an overlay (falls back to a normal link without JS).', 'open-builder' ),
 				'group'   => 'content',
 			],
 		];
@@ -44,6 +52,7 @@ class Widget_Gallery extends Abstract_Widget {
 		$images  = is_array( $content['images'] ?? null ) ? $content['images'] : [];
 		$columns = (int) ( $content['columns'] ?? 3 );
 		$columns = max( 2, min( 5, $columns ) );
+		$masonry = ( $content['layout'] ?? 'grid' ) === 'masonry';
 		$gap     = Security::sanitize_css_value( (string) ( $content['gap'] ?? '12px' ) ) ?: '12px';
 		$link    = ! empty( $content['lightbox'] );
 
@@ -64,15 +73,19 @@ class Widget_Gallery extends Abstract_Widget {
 			} else {
 				continue;
 			}
+			// A real anchor either way, so the "open full size" behaviour degrades
+			// gracefully to a plain link when JS is off; the lightbox JS upgrades it.
 			$items .= $link
 				? sprintf( '<a class="ob-gallery__item" href="%s">%s</a>', esc_url( $full ), $thumb )
 				: sprintf( '<div class="ob-gallery__item">%s</div>', $thumb );
 		}
 
 		return sprintf(
-			'<div class="ob-gallery" style="--ob-gallery-cols:%d;--ob-gallery-gap:%s">%s</div>',
+			'<div class="ob-gallery%1$s" style="--ob-gallery-cols:%2$d;--ob-gallery-gap:%3$s"%4$s>%5$s</div>',
+			$masonry ? ' ob-gallery--masonry' : '',
 			$columns,
 			esc_attr( $gap ),
+			$link ? ' data-ob-lightbox="1"' : '',
 			$items
 		);
 	}

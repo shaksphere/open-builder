@@ -58,12 +58,20 @@ body.openb-built { overflow-x: hidden; }
 .ob-root h5.ob-heading__text { font-size: .83em; }
 .ob-root h6.ob-heading__text { font-size: .67em; }
 
+/* Global link default: no underline, brand-primary color. Scoped to .ob-root so
+   it never leaks into the surrounding theme. This is the baseline every link
+   inside builder content gets; more specific widget rules below (heading,
+   nav, icon-box title, etc.) override it to inherit their local text color
+   instead, which is what makes e.g. a linked heading match the heading. */
+.ob-root a { color: var(--ob-color-primary, #2563eb); text-decoration: none; }
+
 /* Headings & text: normalize spacing. */
 .ob-heading__text { margin: 0 0 .4em; line-height: 1.2; }
 .ob-heading__text a { color: inherit; text-decoration: none; }
 .ob-text__content { line-height: 1.6; }
 .ob-text__content :first-child { margin-top: 0; }
 .ob-text__content :last-child { margin-bottom: 0; }
+.ob-text__content a { color: var(--ob-text-link-color, var(--ob-color-primary, #2563eb)); }
 
 /* Button */
 .ob-button {
@@ -258,6 +266,27 @@ html.openb-popup-open, html.openb-popup-open body { overflow: hidden; }
 .ob-gallery__item { display: block; overflow: hidden; border-radius: 8px; line-height: 0; }
 .ob-gallery__img { width: 100%; height: 100%; object-fit: cover; aspect-ratio: 1 / 1; transition: transform .25s ease; }
 .ob-gallery__item:hover .ob-gallery__img { transform: scale(1.05); }
+/* Masonry: CSS columns, natural image heights (no forced square crop). */
+.ob-gallery--masonry { display: block; column-count: var(--ob-gallery-cols, 3); column-gap: var(--ob-gallery-gap, 12px); }
+.ob-gallery--masonry .ob-gallery__item { display: block; break-inside: avoid; margin-bottom: var(--ob-gallery-gap, 12px); }
+.ob-gallery--masonry .ob-gallery__img { aspect-ratio: auto; height: auto; }
+.ob-gallery[data-ob-lightbox] .ob-gallery__item { cursor: zoom-in; }
+
+/* ----- Lightbox ----- */
+.ob-lightbox { position: fixed; inset: 0; z-index: 100000; display: flex; align-items: center; justify-content: center; background: rgba(15, 23, 42, .92); padding: 24px; }
+.ob-lightbox[hidden] { display: none; }
+.ob-lightbox__img { max-width: 92vw; max-height: 88vh; border-radius: 6px; box-shadow: 0 20px 60px rgba(0, 0, 0, .5); }
+.ob-lightbox__btn {
+	position: absolute; border: 0; background: rgba(255, 255, 255, .12); color: #fff;
+	width: 48px; height: 48px; border-radius: 50%; font-size: 26px; line-height: 1; cursor: pointer;
+	display: flex; align-items: center; justify-content: center; transition: background .15s;
+}
+.ob-lightbox__btn:hover { background: rgba(255, 255, 255, .28); }
+.ob-lightbox__close { top: 18px; right: 18px; }
+.ob-lightbox__prev { left: 18px; top: 50%; transform: translateY(-50%); }
+.ob-lightbox__next { right: 18px; top: 50%; transform: translateY(-50%); }
+.ob-lightbox__count { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); color: rgba(255, 255, 255, .8); font: 500 13px/1 system-ui, sans-serif; }
+@media (max-width: 767px) { .ob-lightbox__prev { left: 8px; } .ob-lightbox__next { right: 8px; } .ob-lightbox__btn { width: 40px; height: 40px; } }
 
 /* ----- Icon Box ----- */
 .ob-iconbox--center { text-align: center; }
@@ -267,6 +296,47 @@ html.openb-popup-open, html.openb-popup-open body { overflow: hidden; }
 .ob-iconbox__title { margin: 0 0 8px; font-size: 1.25rem; }
 .ob-iconbox__title a { color: inherit; text-decoration: none; }
 .ob-iconbox__text { color: var(--ob-color-muted, #6b7280); line-height: 1.6; }
+
+/* ----- Feature Grid ----- */
+.ob-fgrid { display: grid; grid-template-columns: repeat(var(--ob-fgrid-cols, 4), 1fr); gap: 28px; }
+.ob-fgrid--center .ob-fgrid__cell { text-align: center; }
+.ob-fgrid--center .ob-fgrid__icon { margin-left: auto; margin-right: auto; }
+.ob-fgrid__cell { display: flex; flex-direction: column; gap: 8px; }
+.ob-fgrid__icon { display: block; margin-bottom: 6px; }
+.ob-fgrid__title { margin: 0; font-size: 1.15rem; }
+.ob-fgrid__title a { color: inherit; text-decoration: none; }
+.ob-fgrid__text { margin: 0; color: var(--ob-color-muted, #6b7280); line-height: 1.6; }
+@media (max-width: 1024px) { .ob-fgrid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 767px) { .ob-fgrid { grid-template-columns: 1fr; } }
+
+/* ----- Pricing Table ----- */
+.ob-pricing { display: grid; grid-template-columns: repeat(var(--ob-pricing-cols, 3), 1fr); gap: 24px; align-items: start; }
+.ob-pricing__card {
+	position: relative; display: flex; flex-direction: column; gap: 18px;
+	padding: 32px 28px; border: 1px solid #e5e7eb; border-radius: 14px; background: #fff;
+}
+.ob-pricing__card.is-featured {
+	border-color: var(--ob-color-primary, #2563eb); border-width: 2px;
+	box-shadow: 0 12px 34px rgba(37, 99, 235, .14);
+}
+.ob-pricing__badge {
+	position: absolute; top: -13px; left: 50%; transform: translateX(-50%);
+	background: var(--ob-color-primary, #2563eb); color: #fff; font-size: 12px; font-weight: 700;
+	letter-spacing: .02em; text-transform: uppercase; padding: 4px 14px; border-radius: 999px; white-space: nowrap;
+}
+.ob-pricing__head { text-align: center; }
+.ob-pricing__name { font-weight: 700; font-size: 1.1rem; color: var(--ob-color-heading, #111827); }
+.ob-pricing__price { margin-top: 6px; font-size: 2.5rem; font-weight: 800; line-height: 1; color: var(--ob-color-heading, #111827); }
+.ob-pricing__period { font-size: .95rem; font-weight: 500; color: var(--ob-color-muted, #6b7280); }
+.ob-pricing__features { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.ob-pricing__feature { position: relative; padding-left: 26px; line-height: 1.5; color: var(--ob-color-text, #1f2937); }
+.ob-pricing__feature:before {
+	content: ""; position: absolute; left: 0; top: 4px; width: 16px; height: 16px;
+	background: no-repeat center/contain;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E");
+}
+.ob-pricing__btn { margin-top: auto; text-align: center; justify-content: center; }
+@media (max-width: 1024px) { .ob-pricing { grid-template-columns: 1fr; max-width: 460px; margin-left: auto; margin-right: auto; } }
 
 /* ----- Icon List ----- */
 .ob-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
@@ -329,6 +399,26 @@ html.openb-popup-open, html.openb-popup-open body { overflow: hidden; }
 /* ----- Google Map ----- */
 .ob-map { width: 100%; overflow: hidden; border-radius: 8px; }
 .ob-map__frame { display: block; }
+
+/* ----- Entrance animations -----
+   Classes are added by frontend.js (not the server) so no-JS visitors always
+   see visible content. Duration/delay come from per-element CSS custom props. */
+.ob-anim {
+	opacity: 0;
+	will-change: opacity, transform;
+	transition:
+		opacity var(--ob-anim-dur, 600ms) cubic-bezier(.2, .7, .2, 1) var(--ob-anim-delay, 0ms),
+		transform var(--ob-anim-dur, 600ms) cubic-bezier(.2, .7, .2, 1) var(--ob-anim-delay, 0ms);
+}
+.ob-anim--up { transform: translateY(28px); }
+.ob-anim--down { transform: translateY(-28px); }
+.ob-anim--left { transform: translateX(28px); }
+.ob-anim--right { transform: translateX(-28px); }
+.ob-anim--zoom { transform: scale(.92); }
+.ob-anim.is-in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+	.ob-anim { opacity: 1 !important; transform: none !important; transition: none; }
+}
 
 @media (max-width: 1024px) {
 	.ob-posts--cols-3, .ob-posts--cols-4 { grid-template-columns: repeat(2, 1fr); }

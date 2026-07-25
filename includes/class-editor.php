@@ -84,6 +84,7 @@ class Editor {
 			'tree'         => $tree,
 			'icons'        => Widget_Icon::set(),
 			'canManage'    => Security::can_manage(),
+			'contentOnly'  => Security::is_content_only(),
 			'isTemplate'   => self::is_chromeless( $post_id ),
 			'pageSettings' => Post_Types::get_page_settings( $post_id ),
 			'canCustomJs'  => current_user_can( 'unfiltered_html' ),
@@ -103,6 +104,12 @@ class Editor {
 		$css_url = OPENB_URL . 'editor/css/editor.css?v=' . OPENB_VERSION;
 		$js_url  = OPENB_URL . 'editor/js/editor.js?v=' . OPENB_VERSION;
 		$title   = esc_html( get_the_title( $post_id ) );
+
+		// CodeMirror (self-hosted, MIT): powers the Custom HTML control's code
+		// editor (highlighting, tab-indent, search). Only loaded in the builder
+		// admin app, never on the front end.
+		$cm = OPENB_URL . 'assets/vendor/codemirror/';
+		$cm_v = OPENB_VERSION;
 		?>
 <!DOCTYPE html>
 <html <?php language_attributes(); ?>>
@@ -111,6 +118,8 @@ class Editor {
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<meta name="robots" content="noindex,nofollow">
 	<title><?php printf( esc_html__( 'Open Builder — %s', 'open-builder' ), $title ); ?></title>
+	<link rel="stylesheet" href="<?php echo esc_url( $cm . 'codemirror.css?v=' . $cm_v ); ?>">
+	<link rel="stylesheet" href="<?php echo esc_url( $cm . 'addon/dialog/dialog.css?v=' . $cm_v ); ?>">
 	<link rel="stylesheet" href="<?php echo esc_url( $css_url ); ?>">
 	<?php wp_print_styles(); ?>
 	<script>window.OPENB_BOOT = <?php echo wp_json_encode( $boot ); ?>;</script>
@@ -126,6 +135,22 @@ class Editor {
 	}
 	if ( function_exists( 'wp_print_footer_scripts' ) ) {
 		wp_print_footer_scripts();
+	}
+	foreach ( [
+		'codemirror.js',
+		'mode/xml/xml.js',
+		'mode/javascript/javascript.js',
+		'mode/css/css.js',
+		'mode/htmlmixed/htmlmixed.js',
+		'addon/edit/matchbrackets.js',
+		'addon/edit/closebrackets.js',
+		'addon/edit/closetag.js',
+		'addon/fold/xml-fold.js',
+		'addon/search/searchcursor.js',
+		'addon/search/search.js',
+		'addon/dialog/dialog.js',
+	] as $cm_file ) {
+		printf( '<script src="%s"></script>' . "\n", esc_url( $cm . $cm_file . '?v=' . $cm_v ) );
 	}
 	?>
 	<script src="<?php echo esc_url( $js_url ); ?>"></script>
@@ -180,6 +205,40 @@ class Editor {
 	}
 
 	/**
+	 * Collect enqueued webfont stylesheet URLs (Google Fonts, Adobe Typekit,
+	 * Bunny, etc.) so the preview canvas can load the same fonts as the front end.
+	 * We match on known font-CDN hosts to avoid pulling the whole theme in.
+	 *
+	 * @return string[] Unique stylesheet URLs.
+	 */
+	private static function collect_webfont_hrefs(): array {
+		$hosts = [
+			'fonts.googleapis.com',
+			'fonts.bunny.net',
+			'use.typekit.net',
+			'p.typekit.net',
+			'fast.fonts.net',
+			'use.fontawesome.com',
+			'cloud.typography.com',
+		];
+		$hrefs = [];
+		$styles = wp_styles();
+		foreach ( $styles->queue as $handle ) {
+			$src = isset( $styles->registered[ $handle ] ) ? (string) $styles->registered[ $handle ]->src : '';
+			if ( '' === $src ) {
+				continue;
+			}
+			foreach ( $hosts as $host ) {
+				if ( false !== strpos( $src, $host ) ) {
+					$hrefs[] = $src;
+					break;
+				}
+			}
+		}
+		return array_values( array_unique( $hrefs ) );
+	}
+
+	/**
 	 * Minimal same-origin document the canvas iframe loads. The parent editor
 	 * injects rendered HTML/CSS into it directly (same origin).
 	 *
@@ -212,6 +271,12 @@ class Editor {
 		$canvas_styles  = array_values( array_diff( wp_styles()->queue, $styles_before ) );
 		$canvas_scripts = array_values( array_diff( wp_scripts()->queue, $scripts_before ) );
 
+		// Webfont stylesheets (Google Fonts, Adobe Typekit, etc.) registered by the
+		// theme/plugins/mu-plugins. The canvas doesn't run wp_head(), so without this
+		// custom fonts wouldn't load and the preview would fall back to system faces
+		// — breaking WYSIWYG for anything using a webfont.
+		$font_hrefs = self::collect_webfont_hrefs();
+
 		$is_template  = self::is_chromeless( $post_id );
 		$chrome       = $is_template ? [ 'header' => 0, 'footer' => 0 ] : $this->resolve_chrome_for( $post_id );
 		$header_id    = (int) $chrome['header'];
@@ -232,6 +297,7 @@ class Editor {
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<meta name="robots" content="noindex,nofollow">
 	<link rel="stylesheet" href="<?php echo esc_url( $frontend_css ); ?>">
+	<?php foreach ( $font_hrefs as $href ) { printf( '<link rel="stylesheet" href="%s">' . "\n", esc_url( $href ) ); /* Webfonts, so the preview matches the front end */ } ?>
 	<?php if ( ! empty( $canvas_styles ) ) { wp_print_styles( $canvas_styles ); /* CSS enqueued by shortcodes/widgets in the canvas */ } ?>
 	<style id="openb-dynamic-css"><?php echo $css; // Compiled from sanitized values. ?></style>
 	<style id="openb-global-custom-css"><?php echo $plugin->global_styles->get_custom_css(); // Sanitized at save time. ?></style>

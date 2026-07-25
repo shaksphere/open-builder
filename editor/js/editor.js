@@ -284,6 +284,8 @@
 				n.addEventListener('dblclick', onCanvasInlineEdit);
 			}
 		});
+		decorateColumnResizers(doc);
+
 		// Root-level drop when empty or dropping at the end. The #openb-canvas
 		// container persists across re-renders, so attach its listeners once.
 		var container = doc.getElementById('openb-canvas');
@@ -297,6 +299,110 @@
 				if (a) e.preventDefault();
 			}, true);
 		}
+	}
+
+	/* ----------------------------------------------------------------------- *
+	 * Column resize: draggable dividers between columns, Elementor-style. Each
+	 * handle lives inside the same-origin canvas iframe (so its styles are
+	 * inlined, not from editor.css). Dragging preserves the pair's combined width
+	 * so the row never re-wraps, and commits explicit %-widths to both columns —
+	 * which the CSS generator turns into flex:0 0 auto overrides (see
+	 * Css_Generator::column_width_override).
+	 * ----------------------------------------------------------------------- */
+	function decorateColumnResizers(doc) {
+		if (BOOT.contentOnly) return; // resizing columns is a layout change
+		Array.prototype.forEach.call(doc.querySelectorAll('#openb-canvas .ob-columns'), function (cols) {
+			// Drop any handles from a previous decorate pass on this container.
+			Array.prototype.forEach.call(cols.querySelectorAll(':scope > .openb-colresize'), function (h) { h.remove(); });
+			var children = Array.prototype.filter.call(cols.children, function (c) {
+				return c.classList && c.classList.contains('ob-column');
+			});
+			if (children.length < 2) return;
+			var cs = doc.defaultView.getComputedStyle(cols);
+			if (cs.position === 'static') cols.style.position = 'relative';
+			for (var i = 0; i < children.length - 1; i++) {
+				cols.appendChild(makeColumnHandle(doc, cols, children[i], children[i + 1]));
+			}
+		});
+	}
+
+	function makeColumnHandle(doc, cols, colA, colB) {
+		var handle = doc.createElement('div');
+		handle.className = 'openb-colresize';
+		handle.style.cssText = 'position:absolute;top:0;height:100%;width:14px;transform:translateX(-50%);' +
+			'cursor:col-resize;z-index:30;display:flex;align-items:center;justify-content:center;touch-action:none;';
+		var bar = doc.createElement('div');
+		bar.style.cssText = 'width:3px;height:44px;max-height:70%;border-radius:3px;background:#2563eb;opacity:0;transition:opacity .12s;box-shadow:0 0 0 2px rgba(255,255,255,.9);';
+		handle.appendChild(bar);
+
+		function position() {
+			var mid = (colA.offsetLeft + colA.offsetWidth + colB.offsetLeft) / 2;
+			handle.style.left = mid + 'px';
+		}
+		position();
+
+		var dragging = false;
+		handle.addEventListener('mouseenter', function () { bar.style.opacity = '1'; });
+		handle.addEventListener('mouseleave', function () { if (!dragging) bar.style.opacity = '0'; });
+		// Don't let a click on the handle bubble up and select the columns node.
+		handle.addEventListener('click', function (e) { e.stopPropagation(); e.preventDefault(); });
+
+		handle.addEventListener('pointerdown', function (e) {
+			e.preventDefault();
+			e.stopPropagation();
+			dragging = true;
+			bar.style.opacity = '1';
+			handle.setPointerCapture(e.pointerId);
+
+			var startX = e.clientX;
+			var aStart = colA.getBoundingClientRect().width;
+			var bStart = colB.getBoundingClientRect().width;
+			var combined = aStart + bStart;
+			var containerW = cols.clientWidth || (combined + 1);
+			var MIN = 40;
+
+			function onMove(ev) {
+				var delta = ev.clientX - startX;
+				var newA = Math.max(MIN, Math.min(combined - MIN, aStart + delta));
+				var newB = combined - newA;
+				// Keep the pair's total constant → the row can't re-wrap mid-drag.
+				colA.style.flex = '0 0 auto';
+				colB.style.flex = '0 0 auto';
+				colA.style.width = (newA / containerW * 100).toFixed(2) + '%';
+				colB.style.width = (newB / containerW * 100).toFixed(2) + '%';
+				position();
+			}
+			function onUp() {
+				handle.removeEventListener('pointermove', onMove);
+				handle.removeEventListener('pointerup', onUp);
+				dragging = false;
+				bar.style.opacity = '0';
+				commitColumnWidths(colA, colB);
+			}
+			handle.addEventListener('pointermove', onMove);
+			handle.addEventListener('pointerup', onUp);
+		});
+
+		return handle;
+	}
+
+	// Persist the two columns' dragged widths into the tree (current device),
+	// then re-render so the server recompiles the width-override CSS.
+	function commitColumnWidths(colA, colB) {
+		pushHistory();
+		[colA, colB].forEach(function (colEl) {
+			var id = colEl.getAttribute('data-ob-id');
+			var hit = id && findNode(id);
+			if (!hit) return;
+			var w = colEl.style.width;
+			if (!w) return;
+			var s = hit.node.settings.style = (hit.node.settings.style && !Array.isArray(hit.node.settings.style)) ? hit.node.settings.style : {};
+			var dev = s[state.device] = (s[state.device] && !Array.isArray(s[state.device])) ? s[state.device] : {};
+			dev.width = w;
+		});
+		markDirty();
+		renderCanvas();
+		renderLayers();
 	}
 
 	/* ----------------------------------------------------------------------- *
@@ -506,7 +612,7 @@
 	function applyDrop(targetId, position) {
 		var drag = state.drag;
 		state.drag = null;
-		if (!drag) return;
+		if (!drag || BOOT.contentOnly) return;
 		pushHistory();
 		if (drag.mode === 'new') {
 			var node = newNode(drag.type);
@@ -589,8 +695,9 @@
 				chromeBtn,
 				el('button', { class: 'openb-btn', title: 'Undo', onclick: undo }, [svg('M7 7L3 11l4 4M3 11h10a4 4 0 010 8h-2')]),
 				el('button', { class: 'openb-btn', title: 'Redo', onclick: redo }, [svg('M13 7l4 4-4 4M17 11H7a4 4 0 000 8h2')]),
-				el('button', { class: 'openb-btn', title: 'Page Settings', onclick: openPageSettings }, [svg('M10 3l1.5 2.6 3-.5-.5 3L16.5 11l-2.5 1.4.5 3-3-.5L10 17l-1.5-2.6-3 .5.5-3L3.5 9l2.5-1.4-.5-3 3 .5z'), ' Page']),
-				el('button', { class: 'openb-btn', title: 'Import / Export JSON', onclick: openImportExport }, [svg('M10 3v10M6 9l4 4 4-4M4 17h12'), ' I/O']),
+				BOOT.contentOnly ? null : el('button', { class: 'openb-btn', title: 'Version History', onclick: openHistory }, [svg('M10 3a8 8 0 108 8M10 3V1M10 3a8 8 0 00-6.3 3M10 6v4l3 2')]),
+				BOOT.contentOnly ? null : el('button', { class: 'openb-btn', title: 'Page Settings', onclick: openPageSettings }, [svg('M10 3l1.5 2.6 3-.5-.5 3L16.5 11l-2.5 1.4.5 3-3-.5L10 17l-1.5-2.6-3 .5.5-3L3.5 9l2.5-1.4-.5-3 3 .5z'), ' Page']),
+				BOOT.contentOnly ? null : el('button', { class: 'openb-btn', title: 'Import / Export JSON', onclick: openImportExport }, [svg('M10 3v10M6 9l4 4 4-4M4 17h12'), ' I/O']),
 				el('a', { class: 'openb-btn', href: BOOT.viewUrl, target: '_blank', rel: 'noopener' }, ['View']),
 				el('a', { class: 'openb-btn', href: BOOT.exitUrl }, ['Exit']),
 				saveBtn
@@ -599,28 +706,43 @@
 	}
 
 	function buildLeftPanel() {
+		var locked = !!BOOT.contentOnly;
 		var panel = el('div', { class: 'openb-left' });
+		// In content-only mode the "add widgets" surface is gone, so Layers (find &
+		// select an element to edit) is the primary tab.
 		var tabs = el('div', { class: 'openb-tabs' }, [
-			tabBtn('widgets', 'Widgets', true),
-			tabBtn('layers', 'Layers'),
+			tabBtn('widgets', 'Widgets', !locked),
+			tabBtn('layers', 'Layers', locked),
 			BOOT.canManage ? tabBtn('globals', 'Globals') : null
 		].filter(Boolean));
 		panel.appendChild(tabs);
 
-		var widgetSearch = el('input', {
-			class: 'openb-input openb-widgetsearch',
-			type: 'search',
-			placeholder: 'Search widgets…',
-			'aria-label': 'Search widgets'
-		});
-		widgetSearch.addEventListener('input', function () { filterWidgets(widgetSearch.value); });
-		panel.appendChild(el('div', { class: 'openb-tabpane', id: 'pane-widgets' }, [
-			el('button', { class: 'openb-btn openb-btn--primary openb-btn--block', onclick: openSectionLibrary }, ['＋ Section Library']),
-			widgetSearch,
-			buildWidgetList()
-		]));
-		panel.appendChild(el('div', { class: 'openb-tabpane', id: 'pane-layers', style: 'display:none' }));
+		var widgetsChildren;
+		if (locked) {
+			widgetsChildren = [ el('div', { class: 'openb-locknote' }, [
+				el('strong', { text: 'Content-only mode' }),
+				el('p', { class: 'openb-hint', text: 'You can edit text, images and links. Adding, deleting or moving elements is turned off. Use the Layers tab to find an element, then click it to edit its content.' })
+			]) ];
+		} else {
+			var widgetSearch = el('input', {
+				class: 'openb-input openb-widgetsearch',
+				type: 'search',
+				placeholder: 'Search widgets…',
+				'aria-label': 'Search widgets'
+			});
+			widgetSearch.addEventListener('input', function () { filterWidgets(widgetSearch.value); });
+			widgetsChildren = [
+				BOOT.canManage ? el('button', { class: 'openb-btn openb-btn--primary openb-btn--block', onclick: openSiteKitLibrary }, ['✦ Site Kits']) : null,
+				el('button', { class: 'openb-btn openb-btn--block', onclick: openPageTemplateLibrary }, ['⌂ Page Templates']),
+				el('button', { class: 'openb-btn openb-btn--block', onclick: openSectionLibrary }, ['＋ Section Library']),
+				widgetSearch,
+				buildWidgetList()
+			];
+		}
+		panel.appendChild(el('div', { class: 'openb-tabpane', id: 'pane-widgets', style: locked ? 'display:none' : '' }, widgetsChildren));
+		panel.appendChild(el('div', { class: 'openb-tabpane', id: 'pane-layers', style: locked ? '' : 'display:none' }));
 		if (BOOT.canManage) panel.appendChild(el('div', { class: 'openb-tabpane', id: 'pane-globals', style: 'display:none' }));
+		if (locked) setTimeout(renderLayers, 0);
 
 		tabs.addEventListener('click', function (e) {
 			var b = e.target.closest('[data-tab]');
@@ -697,6 +819,7 @@
 	}
 
 	function quickAdd(type) {
+		if (BOOT.contentOnly) return;
 		pushHistory();
 		var node = newNode(type);
 		// Append into the selected container if it accepts, else at root.
@@ -751,20 +874,24 @@
 		var node = hit.node;
 		var def = WIDGETS[node.type] || { title: node.type, controls: {} };
 
-		// Header with element actions.
+		// Header with element actions. Content-only users get no duplicate/delete,
+		// and are pinned to the Content tab (no Style/Advanced restructuring).
+		if (BOOT.contentOnly) inspectorTab = 'content';
 		panel.appendChild(el('div', { class: 'openb-inspector__head' }, [
 			el('span', { class: 'openb-inspector__title', text: def.title }),
-			el('div', { class: 'openb-inspector__acts' }, [
+			BOOT.contentOnly ? null : el('div', { class: 'openb-inspector__acts' }, [
 				el('button', { class: 'openb-iconbtn', title: 'Duplicate', onclick: function () { duplicateNode(node.id); } }, [svg('M6 6h9v9H6zM3 3h9v2H5v7H3z')]),
 				el('button', { class: 'openb-iconbtn', title: 'Delete', onclick: function () { deleteNode(node.id); } }, [svg('M4 5h12M8 5V3h4v2M6 5l1 11h6l1-11')])
 			])
 		]));
 
-		var tabs = el('div', { class: 'openb-subtabs' }, [
+		var tabs = el('div', { class: 'openb-subtabs' }, (BOOT.contentOnly ? [
+			subTab('content', 'Content')
+		] : [
 			subTab('content', 'Content'),
 			subTab('style', 'Style'),
 			subTab('advanced', 'Advanced')
-		]);
+		]));
 		panel.appendChild(tabs);
 		tabs.addEventListener('click', function (e) {
 			var b = e.target.closest('[data-subtab]');
@@ -892,16 +1019,20 @@
 		var input;
 		switch (ctrl.type) {
 			case 'textarea':
-			case 'html':
-				input = el('textarea', { class: 'openb-input', rows: ctrl.type === 'html' ? 6 : 3 });
+				input = el('textarea', { class: 'openb-input', rows: 3 });
 				input.value = value || '';
 				input.addEventListener('input', function () { onChange(input.value); });
 				break;
+			case 'html':
+				input = codeEditorControl(value, onChange);
+				break;
 			case 'richtext':
-				input = el('textarea', { class: 'openb-input', rows: 4 });
+				input = richTextControl(value, onChange);
+				break;
+			case 'svg':
+				input = el('textarea', { class: 'openb-input openb-input--mono', rows: 4, spellcheck: 'false', placeholder: '<path d="…"/>' });
 				input.value = value || '';
 				input.addEventListener('input', function () { onChange(input.value); });
-				field.appendChild(el('p', { class: 'openb-hint', text: 'Basic HTML allowed (p, strong, em, a, lists).' }));
 				break;
 			case 'select':
 				input = el('select', { class: 'openb-input' });
@@ -953,6 +1084,276 @@
 		field.appendChild(input);
 		if (ctrl.hint) field.appendChild(el('p', { class: 'openb-hint', text: ctrl.hint }));
 		return field;
+	}
+
+	/* Rich-text control: a small WYSIWYG (contenteditable) with a formatting
+	   toolbar and a "</>" toggle to edit the raw HTML. Dependency-free — no
+	   TinyMCE, whose per-instance init/teardown fights the inspector's frequent
+	   re-renders. Output is wp_kses_post'd server-side on save. */
+	function richTextControl(value, onChange) {
+		var wrap = el('div', { class: 'openb-rte' });
+		var codeMode = false;
+
+		var area = el('div', { class: 'openb-rte__area', contenteditable: 'true' });
+		area.innerHTML = value || '';
+		var code = el('textarea', { class: 'openb-input openb-rte__code', rows: 6, spellcheck: 'false' });
+		code.value = value || '';
+		code.style.display = 'none';
+
+		// Give Enter a <p> break where the browser supports it (best-effort).
+		try { document.execCommand('defaultParagraphSeparator', false, 'p'); } catch (e) {}
+
+		function sync() { if (!codeMode) { code.value = area.innerHTML; onChange(area.innerHTML); } }
+		function exec(cmd, arg) { area.focus(); try { document.execCommand(cmd, false, arg || null); } catch (e) {} sync(); }
+
+		var tools = el('div', { class: 'openb-rte__tools' });
+		function tbtn(html, title, fn) {
+			return el('button', { type: 'button', class: 'openb-rte__btn', title: title, html: html, onclick: fn });
+		}
+		tools.appendChild(tbtn('<b>B</b>', 'Bold', function () { exec('bold'); }));
+		tools.appendChild(tbtn('<i>I</i>', 'Italic', function () { exec('italic'); }));
+		tools.appendChild(tbtn('<u>U</u>', 'Underline', function () { exec('underline'); }));
+		tools.appendChild(tbtn(svgIcon('M9 12h6M10 8H8a4 4 0 000 8h2M14 8h2a4 4 0 010 8h-2'), 'Link', function () {
+			var u = window.prompt('Link URL', 'https://'); if (u) exec('createLink', u);
+		}));
+		tools.appendChild(tbtn('•&nbsp;', 'Bulleted list', function () { exec('insertUnorderedList'); }));
+		tools.appendChild(tbtn('1.', 'Numbered list', function () { exec('insertOrderedList'); }));
+		tools.appendChild(tbtn('⌫', 'Clear formatting', function () { exec('removeFormat'); }));
+
+		var codeBtn = el('button', { type: 'button', class: 'openb-rte__btn openb-rte__codebtn', title: 'Edit as HTML', html: '&lt;/&gt;' });
+		codeBtn.addEventListener('click', function () {
+			codeMode = !codeMode;
+			codeBtn.classList.toggle('is-active', codeMode);
+			Array.prototype.forEach.call(tools.querySelectorAll('.openb-rte__btn'), function (b) {
+				if (b !== codeBtn) b.disabled = codeMode;
+			});
+			if (codeMode) {
+				code.value = area.innerHTML;
+				area.style.display = 'none';
+				code.style.display = '';
+				code.focus();
+			} else {
+				area.innerHTML = code.value;
+				code.style.display = 'none';
+				area.style.display = '';
+				onChange(area.innerHTML);
+			}
+		});
+		tools.appendChild(codeBtn);
+
+		area.addEventListener('input', sync);
+		area.addEventListener('blur', sync);
+		code.addEventListener('input', function () { if (codeMode) onChange(code.value); });
+
+		wrap.appendChild(tools);
+		wrap.appendChild(area);
+		wrap.appendChild(code);
+		return wrap;
+	}
+	// Small inline SVG for toolbar buttons (16px, currentColor stroke).
+	function svgIcon(path) {
+		return '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="' + path + '"/></svg>';
+	}
+
+	/* ----------------------------------------------------------------------- *
+	 * Code editor control (Custom HTML widget): CodeMirror 5 wrapper with
+	 * syntax highlighting, tab-indent, Cmd/Ctrl+F search-and-jump, a Beautify
+	 * button, and a lightweight HTML well-formedness check (unclosed/mismatched
+	 * tags — NOT a full HTML5/JS/CSS parser; script/style bodies are treated as
+	 * opaque and never flagged).
+	 * ----------------------------------------------------------------------- */
+	var HTML_VOID_TAGS = { area: 1, base: 1, br: 1, col: 1, embed: 1, hr: 1, img: 1, input: 1, link: 1, meta: 1, param: 1, source: 1, track: 1, wbr: 1 };
+	var HTML_INLINE_TAGS = { a: 1, abbr: 1, b: 1, bdi: 1, bdo: 1, br: 1, cite: 1, code: 1, data: 1, dfn: 1, em: 1, i: 1, kbd: 1, mark: 1, q: 1, rp: 1, rt: 1, ruby: 1, s: 1, samp: 1, small: 1, span: 1, strong: 1, sub: 1, sup: 1, time: 1, u: 1, 'var': 1, wbr: 1 };
+	// One token stream shared by the checker and the beautifier: comments,
+	// doctype, whole <script>/<style> blocks (kept opaque so JS/CSS content
+	// with < or > never confuses tag matching), individual tags, and text runs.
+	var HTML_TOKEN_RE = /<!--[\s\S]*?-->|<!DOCTYPE[^>]*>|<script\b[^>]*>[\s\S]*?<\/script\s*>|<style\b[^>]*>[\s\S]*?<\/style\s*>|<\/[a-zA-Z][a-zA-Z0-9:-]*\s*>|<[a-zA-Z][a-zA-Z0-9:-]*(?:\s[^<>]*)?\/?>|[^<]+/gi;
+
+	/** @return {ok:true} or {ok:false,line,message} for the first structural problem found. */
+	function checkHtml(src) {
+		var re = new RegExp(HTML_TOKEN_RE.source, 'gi');
+		var stack = [], line = 1, m;
+		while ((m = re.exec(src))) {
+			var tok = m[0];
+			var close = /^<\/([a-zA-Z][a-zA-Z0-9:-]*)\s*>$/.exec(tok);
+			var open = !close && /^<([a-zA-Z][a-zA-Z0-9:-]*)/.exec(tok);
+			if (close) {
+				var ctag = close[1].toLowerCase();
+				if (stack.length && stack[stack.length - 1].tag === ctag) {
+					stack.pop();
+				} else {
+					var idx = -1;
+					for (var s = stack.length - 1; s >= 0; s--) { if (stack[s].tag === ctag) { idx = s; break; } }
+					if (idx === -1) {
+						return { ok: false, line: line, message: 'Closing tag </' + ctag + '> has no matching opening tag.' };
+					}
+					var unclosed = stack[stack.length - 1];
+					return { ok: false, line: unclosed.line, message: 'Unclosed <' + unclosed.tag + '> — expected </' + unclosed.tag + '> before </' + ctag + '> on line ' + line + '.' };
+				}
+			} else if (open && !/^<(?:!--|!DOCTYPE)/i.test(tok)) {
+				var tagName = open[1].toLowerCase();
+				var selfClose = /\/\s*>$/.test(tok) || HTML_VOID_TAGS[tagName];
+				if (!selfClose && tok.slice(0, 8).toLowerCase() !== '<script ' && tok.slice(0, 7).toLowerCase() !== '<style ') {
+					// Whole script/style blocks are matched as one token above, so a
+					// lone "<script...>" tag token here only occurs if it's unclosed.
+					stack.push({ tag: tagName, line: line });
+				}
+			}
+			for (var k = 0; k < tok.length; k++) { if (tok.charCodeAt(k) === 10) line++; }
+		}
+		if (stack.length) {
+			var top = stack[stack.length - 1];
+			return { ok: false, line: top.line, message: 'Unclosed tag <' + top.tag + '> — no matching </' + top.tag + '> found.' };
+		}
+		return { ok: true };
+	}
+
+	/** Best-effort reflow: one block element per line, indented by nesting depth;
+	    inline elements (a, span, b, em…) and text stay on the same line. Does not
+	    reformat script/style bodies internally — only re-indents them as a block. */
+	function beautifyHtml(src) {
+		var re = new RegExp(HTML_TOKEN_RE.source, 'gi');
+		var lines = [], depth = 0, cur = null, m;
+		function flush() { if (cur && cur.parts.length) lines.push(cur.indent + cur.parts.join('')); cur = null; }
+		function startLine() { if (!cur) cur = { indent: '  '.repeat(depth), parts: [], pendingSpace: false }; }
+		// Push an inline part (tag or text run), honoring whether whitespace should
+		// separate it from whatever came before on this line — otherwise "Some
+		// <b>bold</b>" would collapse into "Some<b>bold</b>" once tags are re-glued.
+		function pushInline(part, needsLeadingSpace) {
+			startLine();
+			if (cur.parts.length && (cur.pendingSpace || needsLeadingSpace)) cur.parts.push(' ');
+			cur.parts.push(part);
+			cur.pendingSpace = false;
+		}
+		while ((m = re.exec(src))) {
+			var tok = m[0];
+			if (/^<!--/.test(tok) || /^<!DOCTYPE/i.test(tok)) {
+				flush(); lines.push('  '.repeat(depth) + tok.trim()); continue;
+			}
+			if (/^<script\b/i.test(tok) || /^<style\b/i.test(tok)) {
+				flush();
+				var blockLines = tok.trim().split('\n');
+				blockLines.forEach(function (l, i) { lines.push('  '.repeat(depth) + (i === 0 ? l.replace(/^\s+/, '') : l)); });
+				continue;
+			}
+			var close = /^<\/([a-zA-Z][a-zA-Z0-9:-]*)\s*>$/.exec(tok);
+			if (close) {
+				var ctag = close[1].toLowerCase();
+				if (HTML_INLINE_TAGS[ctag] && cur) { pushInline(tok, false); continue; }
+				flush(); depth = Math.max(0, depth - 1); lines.push('  '.repeat(depth) + tok); continue;
+			}
+			var open = /^<([a-zA-Z][a-zA-Z0-9:-]*)/.exec(tok);
+			if (open) {
+				var tagName = open[1].toLowerCase();
+				var selfClose = /\/\s*>$/.test(tok) || HTML_VOID_TAGS[tagName];
+				if (HTML_INLINE_TAGS[tagName]) { pushInline(tok, false); continue; }
+				flush();
+				lines.push('  '.repeat(depth) + tok);
+				if (!selfClose) depth++;
+				continue;
+			}
+			// Text run: collapse internal whitespace, but remember whether it had
+			// LEADING/trailing whitespace in the source — that's what decides
+			// whether a space belongs between this and the neighboring tag.
+			var collapsed = tok.replace(/\s+/g, ' ');
+			var leading = /^\s/.test(tok);
+			var trailing = /\s$/.test(tok);
+			var trimmed = collapsed.trim();
+			if (!trimmed) { if (cur) cur.pendingSpace = true; continue; }
+			pushInline(trimmed, leading);
+			cur.pendingSpace = trailing;
+		}
+		flush();
+		return lines.join('\n');
+	}
+
+	function codeEditorControl(value, onChange) {
+		var wrap = el('div', { class: 'openb-code' });
+
+		// Graceful fallback if CodeMirror failed to load (e.g. blocked asset).
+		if (!window.CodeMirror) {
+			var ta = el('textarea', { class: 'openb-input openb-input--mono', rows: 8 });
+			ta.value = value || '';
+			ta.addEventListener('input', function () { onChange(ta.value); });
+			wrap.appendChild(ta);
+			return wrap;
+		}
+
+		var tools = el('div', { class: 'openb-code__tools' });
+		var host = el('div', { class: 'openb-code__host' });
+		var status = el('div', { class: 'openb-code__status' });
+		wrap.appendChild(tools);
+		wrap.appendChild(host);
+		wrap.appendChild(status);
+
+		var cm = window.CodeMirror(host, {
+			value: value || '',
+			mode: 'htmlmixed',
+			lineNumbers: true,
+			lineWrapping: true,
+			tabSize: 2,
+			indentUnit: 2,
+			indentWithTabs: false,
+			matchBrackets: true,
+			autoCloseBrackets: true,
+			autoCloseTags: true,
+			extraKeys: {
+				Tab: function (cmInst) {
+					if (cmInst.somethingSelected()) { cmInst.execCommand('indentMore'); }
+					else { cmInst.replaceSelection('  ', 'end'); }
+				},
+				'Shift-Tab': function (cmInst) { cmInst.execCommand('indentLess'); },
+				'Cmd-F': 'findPersistent',
+				'Ctrl-F': 'findPersistent'
+			}
+		});
+
+		var checkTimer;
+		function runCheck() {
+			var res = checkHtml(cm.getValue());
+			status.innerHTML = '';
+			if (res.ok) {
+				status.className = 'openb-code__status is-ok';
+				status.appendChild(el('span', { text: '✓ No issues found' }));
+			} else {
+				status.className = 'openb-code__status is-error';
+				status.appendChild(el('span', { text: '⚠ Line ' + res.line + ': ' + res.message }));
+				var jump = el('button', { type: 'button', class: 'openb-code__jump', text: 'Jump to line' });
+				jump.addEventListener('click', function () {
+					cm.setCursor({ line: res.line - 1, ch: 0 });
+					cm.scrollIntoView({ line: res.line - 1, ch: 0 }, 80);
+					cm.focus();
+				});
+				status.appendChild(jump);
+			}
+		}
+		cm.on('change', function () {
+			onChange(cm.getValue());
+			clearTimeout(checkTimer);
+			checkTimer = setTimeout(runCheck, 400);
+		});
+		runCheck();
+
+		function tbtn(label, title, fn) {
+			return el('button', { type: 'button', class: 'openb-code__btn', title: title, text: label, onclick: fn });
+		}
+		tools.appendChild(tbtn('✨ Beautify', 'Reformat and re-indent this code', function () {
+			var pretty = beautifyHtml(cm.getValue());
+			cm.replaceRange(pretty, { line: 0, ch: 0 }, { line: cm.lastLine(), ch: cm.getLine(cm.lastLine()).length });
+			onChange(cm.getValue());
+			runCheck();
+		}));
+		tools.appendChild(tbtn('🔍 Search', 'Find in this code (Cmd/Ctrl+F)', function () {
+			// Just open the dialog — CodeMirror focuses its own search input.
+			// Calling cm.focus() here would steal focus straight back to the
+			// document, so typed search text lands in the code instead of the box.
+			cm.execCommand('findPersistent');
+		}));
+
+		// CodeMirror needs a layout pass once its container is actually in the DOM.
+		setTimeout(function () { cm.refresh(); }, 0);
+
+		return wrap;
 	}
 
 	function colorControl(value, onChange) {
@@ -1083,12 +1484,20 @@
 		frame.open();
 	}
 
+	// Render one icon-set glyph as an <svg>, reading the actual path data the
+	// server bundled in BOOT.icons (so the picker scales with the icon library
+	// instead of being limited to the small hand-mapped panel-icon set).
+	function iconSetSvg(name) {
+		var raw = (BOOT.icons && BOOT.icons[name]) ? BOOT.icons[name] : '';
+		if (!raw) return widgetIcon(name);
+		return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + raw + '</svg>';
+	}
 	function iconControl(ctrl, value, onChange) {
 		var wrap = el('div', { class: 'openb-iconpicker' });
 		(ctrl.choices || Object.keys(BOOT.icons || {})).forEach(function (name) {
 			var b = el('button', {
 				class: 'openb-iconpick' + (value === name ? ' is-active' : ''), title: name,
-				html: widgetIcon(name), onclick: function () { onChange(name); refreshInspectorKeepScroll(); }
+				html: iconSetSvg(name), onclick: function () { onChange(name); refreshInspectorKeepScroll(); }
 			});
 			wrap.appendChild(b);
 		});
@@ -1216,6 +1625,29 @@
 		wrap.appendChild(styleGroup('Effects', [
 			unitSliderRow('Opacity', get('opacity'), { min: 0, max: 1, step: 0.05, units: [''], plain: true }, function (v) { setProp('opacity', v); })
 		]));
+
+		/* Hover state — a flat map, not per-breakpoint (applies at every device). */
+		if (Array.isArray(node.settings.style.hover) || !node.settings.style.hover) node.settings.style.hover = {};
+		var hoverMap = node.settings.style.hover;
+		function setHover(prop, val) {
+			if (val === '' || val == null) delete hoverMap[prop]; else hoverMap[prop] = val;
+			markDirty(); rerender();
+		}
+		function getHover(prop) { return hoverMap[prop] != null ? hoverMap[prop] : ''; }
+		var hoverGroup = styleGroup('Hover State', [
+			colorPopoverRow('Text Color', getHover('color'), function (v) { setHover('color', v); }),
+			colorPopoverRow('Background Color', getHover('background-color'), function (v) { setHover('background-color', v); }),
+			colorPopoverRow('Border Color', getHover('border-color'), function (v) { setHover('border-color', v); }),
+			unitSliderRow('Opacity', getHover('opacity'), { min: 0, max: 1, step: 0.05, units: [''], plain: true }, function (v) { setHover('opacity', v); }),
+			iconGroupRow('Motion', getHover('transform'), [
+				{ val: '', title: 'None', text: '∅' },
+				{ val: 'translateY(-4px)', title: 'Lift', text: '↑' },
+				{ val: 'scale(1.04)', title: 'Grow', text: '⤢' },
+				{ val: 'scale(0.97)', title: 'Shrink', text: '⤡' }
+			], function (v) { setHover('transform', v); })
+		]);
+		hoverGroup.insertBefore(el('p', { class: 'openb-hint', text: 'Applies on mouse hover, at every device size.' }), hoverGroup.children[1]);
+		wrap.appendChild(hoverGroup);
 
 		return wrap;
 	}
@@ -1493,6 +1925,28 @@
 		wrap.appendChild(cssField);
 		wrap.appendChild(el('p', { class: 'openb-hint', text: 'Example: selector { box-shadow: 0 4px 20px rgba(0,0,0,.1) }' }));
 
+		// Entrance animation: plays on the live page when the element scrolls into
+		// view. Stored under advanced.animation; the editor canvas intentionally
+		// renders the final (visible) state, so these don't preview in-editor.
+		adv.animation = (adv.animation && !Array.isArray(adv.animation)) ? adv.animation : {};
+		var anim = adv.animation;
+		wrap.appendChild(el('div', { class: 'openb-stylegroup__title', text: 'Entrance Animation' }));
+		wrap.appendChild(controlField({ type: 'select', label: 'Animation', choices: {
+			none: 'None', fade: 'Fade In', up: 'Fade Up', down: 'Fade Down', left: 'Fade Left', right: 'Fade Right', zoom: 'Zoom In'
+		} }, anim.type || 'none', function (v) {
+			if (v === 'none') { delete anim.type; } else { anim.type = v; }
+			markDirty();
+		}));
+		wrap.appendChild(controlField({ type: 'number', label: 'Duration (ms)' }, anim.duration != null ? anim.duration : '', function (v) {
+			if (v === '') { delete anim.duration; } else { anim.duration = parseInt(v, 10) || 0; }
+			markDirty();
+		}));
+		wrap.appendChild(controlField({ type: 'number', label: 'Delay (ms)' }, anim.delay != null ? anim.delay : '', function (v) {
+			if (v === '') { delete anim.delay; } else { anim.delay = parseInt(v, 10) || 0; }
+			markDirty();
+		}));
+		wrap.appendChild(el('p', { class: 'openb-hint', text: 'Plays on the live page when scrolled into view. Not previewed in the editor.' }));
+
 		// Responsive visibility: hide this element on specific devices.
 		wrap.appendChild(el('div', { class: 'openb-stylegroup__title', text: 'Responsive Visibility' }));
 		[['hide_desktop', 'Hide on Desktop'], ['hide_tablet', 'Hide on Tablet'], ['hide_mobile', 'Hide on Mobile']].forEach(function (h) {
@@ -1573,56 +2027,60 @@
 				});
 			}
 
-			var row = el('div', {
+			var locked = !!BOOT.contentOnly;
+			var rowAttrs = {
 				class: 'openb-layer' + (n.id === state.selectedId ? ' is-selected' : ''),
-				draggable: 'true',
 				'data-layer-id': n.id,
 				style: 'padding-left:' + (6 + depth * 14) + 'px',
 				onclick: function (e) { e.stopPropagation(); selectNode(n.id); },
 				oncontextmenu: function (e) { e.preventDefault(); e.stopPropagation(); selectNode(n.id); showContextMenu(e.clientX, e.clientY, nodeMenuItems(n.id)); }
-			}, [
+			};
+			if (!locked) rowAttrs.draggable = 'true';
+			var row = el('div', rowAttrs, [
 				caret,
 				el('span', { class: 'openb-layer__icon', html: widgetIcon(def.icon) }),
 				el('span', { class: 'openb-layer__name', text: def.title }),
-				el('span', { class: 'openb-layer__acts' }, [
+				locked ? null : el('span', { class: 'openb-layer__acts' }, [
 					el('button', { class: 'openb-iconbtn', title: 'Duplicate', text: '⎘', onclick: function (e) { e.stopPropagation(); duplicateNode(n.id); } }),
 					el('button', { class: 'openb-iconbtn', title: 'Delete', text: '×', onclick: function (e) { e.stopPropagation(); deleteNode(n.id); } })
 				])
 			]);
 
-			// Drag-to-reorder / nest within the tree.
-			row.addEventListener('dragstart', function (e) {
-				state.drag = { mode: 'move', id: n.id };
-				e.dataTransfer.effectAllowed = 'move';
-				e.dataTransfer.setData('text/plain', n.id);
-				e.stopPropagation();
-			});
-			row.addEventListener('dragover', function (e) {
-				if (!state.drag || state.drag.mode !== 'move') return;
-				e.preventDefault();
-				e.stopPropagation();
-				row.classList.remove('layer-before', 'layer-after', 'layer-inside');
-				var r = row.getBoundingClientRect();
-				var ratio = (e.clientY - r.top) / r.height;
-				if (isContainer && ratio > 0.3 && ratio < 0.7) row.classList.add('layer-inside');
-				else if (ratio < 0.5) row.classList.add('layer-before');
-				else row.classList.add('layer-after');
-			});
-			row.addEventListener('dragleave', function () { row.classList.remove('layer-before', 'layer-after', 'layer-inside'); });
-			row.addEventListener('drop', function (e) {
-				if (!state.drag || state.drag.mode !== 'move') return;
-				e.preventDefault();
-				e.stopPropagation();
-				var pos = row.classList.contains('layer-inside') ? 'inside' : (row.classList.contains('layer-before') ? 'before' : 'after');
-				row.classList.remove('layer-before', 'layer-after', 'layer-inside');
-				var dragId = state.drag.id;
-				state.drag = null;
-				if (dragId === n.id) return;
-				pushHistory();
-				moveNode(dragId, n.id, pos);
-				if (pos === 'inside') delete state.collapsed[n.id];
-				markDirty(); renderCanvas(); renderLayers();
-			});
+			// Drag-to-reorder / nest within the tree (disabled in content-only mode).
+			if (!locked) {
+				row.addEventListener('dragstart', function (e) {
+					state.drag = { mode: 'move', id: n.id };
+					e.dataTransfer.effectAllowed = 'move';
+					e.dataTransfer.setData('text/plain', n.id);
+					e.stopPropagation();
+				});
+				row.addEventListener('dragover', function (e) {
+					if (!state.drag || state.drag.mode !== 'move') return;
+					e.preventDefault();
+					e.stopPropagation();
+					row.classList.remove('layer-before', 'layer-after', 'layer-inside');
+					var r = row.getBoundingClientRect();
+					var ratio = (e.clientY - r.top) / r.height;
+					if (isContainer && ratio > 0.3 && ratio < 0.7) row.classList.add('layer-inside');
+					else if (ratio < 0.5) row.classList.add('layer-before');
+					else row.classList.add('layer-after');
+				});
+				row.addEventListener('dragleave', function () { row.classList.remove('layer-before', 'layer-after', 'layer-inside'); });
+				row.addEventListener('drop', function (e) {
+					if (!state.drag || state.drag.mode !== 'move') return;
+					e.preventDefault();
+					e.stopPropagation();
+					var pos = row.classList.contains('layer-inside') ? 'inside' : (row.classList.contains('layer-before') ? 'before' : 'after');
+					row.classList.remove('layer-before', 'layer-after', 'layer-inside');
+					var dragId = state.drag.id;
+					state.drag = null;
+					if (dragId === n.id) return;
+					pushHistory();
+					moveNode(dragId, n.id, pos);
+					if (pos === 'inside') delete state.collapsed[n.id];
+					markDirty(); renderCanvas(); renderLayers();
+				});
+			}
 
 			ul.appendChild(row);
 			if (hasKids && !collapsed) ul.appendChild(buildLayerList(n.children, depth + 1));
@@ -1779,6 +2237,10 @@
 	 * Context menu (right-click on canvas blocks and layer rows)
 	 * ----------------------------------------------------------------------- */
 	function nodeMenuItems(id) {
+		// Content-only users can select-to-edit but not restructure.
+		if (BOOT.contentOnly) {
+			return [ { label: 'Edit', icon: '✎', fn: function () { selectNode(id); } } ];
+		}
 		var hit = findNode(id);
 		var isContainer = hit && WIDGETS[hit.node.type] && WIDGETS[hit.node.type].isContainer;
 		var isGlobalBlock = hit && hit.node.type === 'global_block';
@@ -1873,23 +2335,34 @@
 		if (inspectorTab === 'style') renderInspector();
 	}
 
-	function save() {
+	function save(silent) {
+		// The Save button's onclick passes the click event as the first arg, so
+		// only an explicit `true` (from autosave) counts as silent — otherwise a
+		// manual click would be mistaken for an autosave and skip its snapshot.
+		silent = silent === true;
 		var btn = document.getElementById('openb-save');
-		if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+		if (btn && !silent) { btn.disabled = true; btn.textContent = 'Saving…'; }
 		api('/save', {
 			post_id: BOOT.postId,
 			tree: state.tree,
 			page_settings: state.pageSettings,
-			title: state.title
+			title: state.title,
+			snapshot: !silent // manual saves create a restore point; autosaves don't
 		}).then(function (res) {
 			if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
-			if (res.ok) { state.dirty = false; toast('Saved'); }
-			else toast('Save failed', true);
+			if (res.ok) { state.dirty = false; toast(silent ? 'Autosaved' : 'Saved'); }
+			else if (!silent) toast('Save failed', true);
 		}).catch(function () {
 			if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
-			toast('Save failed', true);
+			if (!silent) toast('Save failed', true);
 		});
 	}
+
+	/* Autosave: silently persist whenever there are unsaved changes, so a crash
+	   or accidental navigation loses at most one interval's worth of edits. The
+	   manual Save button and Cmd/Ctrl+S remain the primary, non-silent path. */
+	var AUTOSAVE_INTERVAL_MS = 30000;
+	setInterval(function () { if (state.dirty) save(true); }, AUTOSAVE_INTERVAL_MS);
 
 	/* ----------------------------------------------------------------------- *
 	 * Page settings modal
@@ -1970,6 +2443,54 @@
 	 * Import / Export the current page (or block) as JSON
 	 * ----------------------------------------------------------------------- */
 	function slugify(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
+
+	/* ----------------------------------------------------------------------- *
+	 * Version history: restore a previously-saved snapshot of this page. Each
+	 * manual Save records a restore point (see save()); this lists them and loads
+	 * a chosen one back into the editor as an undoable change.
+	 * ----------------------------------------------------------------------- */
+	function openHistory() {
+		var body = el('div', { class: 'openb-modal__body' });
+		body.appendChild(el('p', { class: 'openb-hint', text: 'Each time you Save, Open Builder records a version. Restore one to roll this page back — you can still Undo afterwards.' }));
+		var listWrap = el('div', { class: 'openb-history' }, [el('p', { class: 'openb-hint', text: 'Loading…' })]);
+		body.appendChild(listWrap);
+		modal('Version History', body);
+
+		api('/revisions', { post_id: BOOT.postId }).then(function (res) {
+			listWrap.innerHTML = '';
+			var revs = (res.ok && res.data && res.data.revisions) || [];
+			if (!revs.length) {
+				listWrap.appendChild(el('p', { class: 'openb-hint', text: 'No saved versions yet. Save the page to create your first restore point.' }));
+				return;
+			}
+			revs.forEach(function (rev, i) {
+				var meta = (rev.when ? (rev.when + ' ago') : '') + (rev.author ? ' · ' + rev.author : '');
+				listWrap.appendChild(el('div', { class: 'openb-history__row' }, [
+					el('div', { class: 'openb-history__meta' }, [
+						el('span', { class: 'openb-history__date', text: (i === 0 ? 'Latest — ' : '') + (rev.date || '') }),
+						el('span', { class: 'openb-history__sub', text: meta })
+					]),
+					el('button', { class: 'openb-btn openb-btn--primary', onclick: function () { restoreRevision(rev.index, rev.date); } }, ['Restore'])
+				]));
+			});
+		}).catch(function () {
+			listWrap.innerHTML = '';
+			listWrap.appendChild(el('p', { class: 'openb-hint', text: 'Could not load version history.' }));
+		});
+	}
+
+	function restoreRevision(index, label) {
+		if (!window.confirm('Restore the version from ' + (label || 'this point') + '? Your current layout will be replaced (you can Undo).')) return;
+		api('/revision', { post_id: BOOT.postId, index: index }).then(function (res) {
+			if (!res.ok || !res.data || !res.data.tree) { toast('Could not restore version', true); return; }
+			pushHistory();
+			state.tree = normalizeTree(res.data.tree);
+			state.selectedId = null;
+			markDirty(); renderCanvas(); renderLayers(); renderInspector();
+			closeModal();
+			toast('Version restored — Save to keep it');
+		}).catch(function () { toast('Could not restore version', true); });
+	}
 
 	function openImportExport() {
 		var body = el('div', { class: 'openb-modal__body' });
@@ -2063,6 +2584,7 @@
 		var node = newNode(spec.type);
 		if (spec.content) Object.keys(spec.content).forEach(function (k) { node.settings.content[k] = spec.content[k]; });
 		if (spec.style) node.settings.style = deepClone(spec.style);
+		if (spec.background) node.settings.background = deepClone(spec.background);
 		if (spec.children) node.children = spec.children.map(instantiatePreset);
 		return node;
 	}
@@ -2088,6 +2610,318 @@
 		closeModal(); toast(tpl.name + ' added');
 	}
 
+	/* ----------------------------------------------------------------------- *
+	 * Page template library: full ready-made pages for the site types most
+	 * small-business users are building (a home page, an about page, a services
+	 * page, a contact page, a pricing page). Each entry replaces the whole page
+	 * so the result reads as a finished layout, not another blank canvas.
+	 * ----------------------------------------------------------------------- */
+	var PAGE_TEMPLATES = [
+		{
+			name: 'Home', description: 'Hero, features, testimonial, call to action.',
+			sections: [
+				{ type: 'section', style: { desktop: { 'padding-top': '100px', 'padding-bottom': '100px', 'text-align': 'center' } }, children: [
+					{ type: 'heading', content: { text: 'Grow your business with confidence', tag: 'h1' } },
+					{ type: 'text', content: { text: '<p>Tell visitors in one sentence what you do and who it’s for.</p>' } },
+					{ type: 'button', content: { text: 'Get Started', url: '#contact' } }
+				] },
+				{ type: 'section', style: { desktop: { 'padding-top': '64px', 'padding-bottom': '64px' } }, children: [
+					{ type: 'heading', content: { text: 'What we offer', tag: 'h2' }, style: { desktop: { 'text-align': 'center', 'margin-bottom': '32px' } } },
+					{ type: 'columns', children: [
+						{ type: 'column', children: [ { type: 'icon_box', content: { icon: 'bolt', title: 'Fast', text: 'Quick turnaround without cutting corners.' } } ] },
+						{ type: 'column', children: [ { type: 'icon_box', content: { icon: 'check', title: 'Reliable', text: 'We show up and deliver, every time.' } } ] },
+						{ type: 'column', children: [ { type: 'icon_box', content: { icon: 'heart', title: 'Client-first', text: 'Your goals shape how we work.' } } ] }
+					] }
+				] },
+				{ type: 'section', style: { desktop: { 'padding-top': '64px', 'padding-bottom': '64px' } }, children: [
+					{ type: 'heading', content: { text: 'What our clients say', tag: 'h2' }, style: { desktop: { 'text-align': 'center', 'margin-bottom': '24px' } } },
+					{ type: 'testimonial' }
+				] },
+				{ type: 'section', style: { desktop: { 'padding-top': '64px', 'padding-bottom': '64px', 'text-align': 'center' } }, children: [
+					{ type: 'heading', content: { text: 'Ready to get started?', tag: 'h2' } },
+					{ type: 'button', content: { text: 'Contact Us', url: '#contact' } }
+				] }
+			]
+		},
+		{
+			name: 'About Us', description: 'Story, image + text, values, call to action.',
+			sections: [
+				{ type: 'section', style: { desktop: { 'padding-top': '80px', 'padding-bottom': '40px', 'text-align': 'center' } }, children: [
+					{ type: 'heading', content: { text: 'About Us', tag: 'h1' } },
+					{ type: 'text', content: { text: '<p>Share who you are, how you started, and why clients choose you.</p>' } }
+				] },
+				{ type: 'section', style: { desktop: { 'padding-top': '40px', 'padding-bottom': '64px' } }, children: [
+					{ type: 'columns', children: [
+						{ type: 'column', children: [ { type: 'image', content: { image: { id: 0, url: '' }, alt: 'Our team at work' } } ] },
+						{ type: 'column', children: [
+							{ type: 'heading', content: { text: 'Our story', tag: 'h2' } },
+							{ type: 'text', content: { text: '<p>Replace this with a short paragraph about your background, your experience, and what makes your approach different.</p>' } }
+						] }
+					] }
+				] },
+				{ type: 'section', style: { desktop: { 'padding-top': '64px', 'padding-bottom': '64px' } }, children: [
+					{ type: 'heading', content: { text: 'What we value', tag: 'h2' }, style: { desktop: { 'text-align': 'center', 'margin-bottom': '32px' } } },
+					{ type: 'columns', children: [
+						{ type: 'column', children: [ { type: 'icon_box', content: { icon: 'check', title: 'Quality', text: 'We hold our work to a high standard.' } } ] },
+						{ type: 'column', children: [ { type: 'icon_box', content: { icon: 'heart', title: 'Integrity', text: 'Honest advice, even when it’s simpler not to be.' } } ] },
+						{ type: 'column', children: [ { type: 'icon_box', content: { icon: 'globe', title: 'Community', text: 'Proud to serve the people around us.' } } ] }
+					] }
+				] },
+				{ type: 'section', style: { desktop: { 'padding-top': '64px', 'padding-bottom': '64px', 'text-align': 'center' } }, children: [
+					{ type: 'heading', content: { text: 'Want to know more?', tag: 'h2' } },
+					{ type: 'button', content: { text: 'Get in Touch', url: '#contact' } }
+				] }
+			]
+		},
+		{
+			name: 'Services', description: 'Service grid, testimonial, request-a-quote CTA.',
+			sections: [
+				{ type: 'section', style: { desktop: { 'padding-top': '80px', 'padding-bottom': '40px', 'text-align': 'center' } }, children: [
+					{ type: 'heading', content: { text: 'Our Services', tag: 'h1' } },
+					{ type: 'text', content: { text: '<p>An overview of what you offer, in plain language.</p>' } }
+				] },
+				{ type: 'section', style: { desktop: { 'padding-top': '40px', 'padding-bottom': '64px' } }, children: [
+					{ type: 'columns', children: [
+						{ type: 'column', children: [ { type: 'icon_box', content: { icon: 'star', title: 'Service One', text: 'Describe this service and who it’s for.', link: '#contact' } } ] },
+						{ type: 'column', children: [ { type: 'icon_box', content: { icon: 'bolt', title: 'Service Two', text: 'Describe this service and who it’s for.', link: '#contact' } } ] },
+						{ type: 'column', children: [ { type: 'icon_box', content: { icon: 'check', title: 'Service Three', text: 'Describe this service and who it’s for.', link: '#contact' } } ] }
+					] }
+				] },
+				{ type: 'section', style: { desktop: { 'padding-top': '64px', 'padding-bottom': '64px' } }, children: [
+					{ type: 'heading', content: { text: 'What our clients say', tag: 'h2' }, style: { desktop: { 'text-align': 'center', 'margin-bottom': '24px' } } },
+					{ type: 'testimonial' }
+				] },
+				{ type: 'section', style: { desktop: { 'padding-top': '64px', 'padding-bottom': '64px', 'text-align': 'center' } }, children: [
+					{ type: 'heading', content: { text: 'Not sure which service is right for you?', tag: 'h2' } },
+					{ type: 'button', content: { text: 'Request a Quote', url: '#contact' } }
+				] }
+			]
+		},
+		{
+			name: 'Contact', description: 'Contact details, enquiry form, map.',
+			sections: [
+				{ type: 'section', style: { desktop: { 'padding-top': '80px', 'padding-bottom': '40px', 'text-align': 'center' } }, children: [
+					{ type: 'heading', content: { text: 'Contact Us', tag: 'h1' } },
+					{ type: 'text', content: { text: '<p>We’d love to hear from you. Send a message or reach out directly.</p>' } }
+				] },
+				{ type: 'section', style: { desktop: { 'padding-top': '40px', 'padding-bottom': '64px' } }, children: [
+					{ type: 'columns', children: [
+						{ type: 'column', children: [
+							{ type: 'heading', content: { text: 'Get in touch', tag: 'h3' } },
+							{ type: 'icon_list', content: { items: [
+								{ text: 'Phone: (555) 123-4567', icon: 'phone' },
+								{ text: 'Email: hello@example.com', icon: 'mail' },
+								{ text: 'Mon–Fri, 9am–5pm', icon: 'check' }
+							] } },
+							{ type: 'google_map', content: { address: 'Sydney NSW, Australia', zoom: 13, height: '260px' } }
+						] },
+						{ type: 'column', children: [ { type: 'form' } ] }
+					] }
+				] }
+			]
+		},
+		{
+			name: 'Pricing', description: 'Plan comparison, FAQ, contact CTA.',
+			sections: [
+				{ type: 'section', style: { desktop: { 'padding-top': '80px', 'padding-bottom': '40px', 'text-align': 'center' } }, children: [
+					{ type: 'heading', content: { text: 'Simple, Transparent Pricing', tag: 'h1' } },
+					{ type: 'text', content: { text: '<p>Choose the plan that fits, or get in touch for something custom.</p>' } }
+				] },
+				{ type: 'section', style: { desktop: { 'padding-top': '40px', 'padding-bottom': '64px' } }, children: [
+					{ type: 'columns', children: [
+						{ type: 'column', style: { desktop: { padding: '32px', 'border-width': '1px', 'border-style': 'solid', 'border-color': '#e5e7eb', 'border-radius': '12px', 'text-align': 'center' } }, children: [
+							{ type: 'heading', content: { text: 'Starter', tag: 'h3' } },
+							{ type: 'text', content: { text: '<p>Best for getting started.</p>' } },
+							{ type: 'button', content: { text: 'Choose Starter', url: '#contact' } }
+						] },
+						{ type: 'column', style: { desktop: { padding: '32px', 'border-width': '2px', 'border-style': 'solid', 'border-color': 'var(--ob-color-primary)', 'border-radius': '12px', 'text-align': 'center' } }, children: [
+							{ type: 'heading', content: { text: 'Standard', tag: 'h3' } },
+							{ type: 'text', content: { text: '<p>Our most popular plan.</p>' } },
+							{ type: 'button', content: { text: 'Choose Standard', url: '#contact' } }
+						] },
+						{ type: 'column', style: { desktop: { padding: '32px', 'border-width': '1px', 'border-style': 'solid', 'border-color': '#e5e7eb', 'border-radius': '12px', 'text-align': 'center' } }, children: [
+							{ type: 'heading', content: { text: 'Premium', tag: 'h3' } },
+							{ type: 'text', content: { text: '<p>For larger or more complex needs.</p>' } },
+							{ type: 'button', content: { text: 'Choose Premium', url: '#contact' } }
+						] }
+					] }
+				] },
+				{ type: 'section', style: { desktop: { 'padding-top': '40px', 'padding-bottom': '64px' } }, children: [
+					{ type: 'heading', content: { text: 'Frequently Asked Questions', tag: 'h2' }, style: { desktop: { 'text-align': 'center', 'margin-bottom': '24px' } } },
+					{ type: 'accordion', content: { items: [
+						{ title: 'Can I change plans later?', content: '<p>Yes, you can move between plans at any time.</p>' },
+						{ title: 'Is there a contract?', content: '<p>No long-term contract is required.</p>' },
+						{ title: 'Do you offer custom pricing?', content: '<p>Get in touch and we’ll put together an option that fits.</p>' }
+					] } }
+				] },
+				{ type: 'section', style: { desktop: { 'padding-top': '64px', 'padding-bottom': '64px', 'text-align': 'center' } }, children: [
+					{ type: 'heading', content: { text: 'Still have questions?', tag: 'h2' } },
+					{ type: 'button', content: { text: 'Contact Us', url: '#contact' } }
+				] }
+			]
+		}
+	];
+
+	function openPageTemplateLibrary() {
+		var body = el('div', { class: 'openb-modal__body' });
+		body.appendChild(el('p', { class: 'openb-hint', text: 'Replace this page with a ready-made layout, then edit the text, images and styles. This replaces the current page content.' }));
+		var grid = el('div', { class: 'openb-tpl-grid' });
+		PAGE_TEMPLATES.forEach(function (tpl) {
+			grid.appendChild(el('button', { class: 'openb-tpl-card', onclick: function () { insertPageTemplate(tpl); } }, [
+				el('span', { class: 'openb-tpl-card__name', text: tpl.name }),
+				el('span', { class: 'openb-tpl-card__desc', text: tpl.description || '' })
+			]));
+		});
+		body.appendChild(grid);
+		modal('Page Templates', body);
+	}
+
+	function insertPageTemplate(tpl) {
+		if (state.tree.length && !window.confirm('Replace the current page content with the "' + tpl.name + '" template? You can still Undo.')) return;
+		pushHistory();
+		state.tree = tpl.sections.map(instantiatePreset);
+		state.selectedId = null;
+		markDirty(); renderCanvas(); renderLayers(); renderInspector();
+		closeModal(); toast(tpl.name + ' template applied');
+	}
+
+	/* ----------------------------------------------------------------------- *
+	 * Site Kits (admins only): apply a whole cohesive site in one action — brand
+	 * colors & fonts, a matching header + footer (created as theme-builder
+	 * templates), a home layout on THIS page, and a set of published inner pages.
+	 * Answers the "every page starts blank / I'm playing art director across
+	 * pages" gap that lone page templates leave open.
+	 * ----------------------------------------------------------------------- */
+	function pageTemplateSections(name) {
+		var t = PAGE_TEMPLATES.filter(function (p) { return p.name === name; })[0];
+		return t ? t.sections : [];
+	}
+
+	var SITE_KITS = [
+		{
+			name: 'Studio',
+			description: 'Professional starter: brand colors & fonts, a header, a footer, and four matched pages.',
+			globals: {
+				colors: [
+					{ id: 'primary', name: 'Primary', value: '#4f46e5' },
+					{ id: 'secondary', name: 'Secondary', value: '#0ea5e9' },
+					{ id: 'text', name: 'Text', value: '#334155' },
+					{ id: 'heading', name: 'Heading', value: '#0f172a' },
+					{ id: 'muted', name: 'Muted', value: '#64748b' },
+					{ id: 'accent', name: 'Accent', value: '#f59e0b' },
+					{ id: 'light', name: 'Light', value: '#f8fafc' },
+					{ id: 'dark', name: 'Dark', value: '#0f172a' }
+				],
+				fonts: [
+					{ id: 'heading', name: 'Heading', value: "'Inter', system-ui, sans-serif" },
+					{ id: 'body', name: 'Body', value: 'system-ui, -apple-system, sans-serif' }
+				]
+			},
+			header: { type: 'section', style: { desktop: { 'padding-top': '16px', 'padding-bottom': '16px', 'padding-left': '20px', 'padding-right': '20px' } }, children: [
+				{ type: 'columns', style: { desktop: { 'align-items': 'center' } }, children: [
+					{ type: 'column', children: [ { type: 'site_logo' } ] },
+					{ type: 'column', style: { desktop: { display: 'flex', 'flex-direction': 'row', 'justify-content': 'flex-end', 'align-items': 'center', gap: '24px' } }, children: [
+						{ type: 'nav_menu' },
+						{ type: 'button', content: { text: 'Get in Touch', url: '#contact' } }
+					] }
+				] }
+			] },
+			footer: { type: 'section', background: { desktop: { type: 'color', color: 'var(--ob-color-dark)' } }, style: { desktop: { 'padding-top': '48px', 'padding-bottom': '48px', 'padding-left': '20px', 'padding-right': '20px', 'text-align': 'center', color: '#ffffff' } }, children: [
+				{ type: 'site_logo' },
+				{ type: 'text', content: { text: '<p>© Your Company. All rights reserved.</p>' }, style: { desktop: { 'margin-top': '14px', 'margin-bottom': '14px' } } },
+				{ type: 'social_icons', style: { desktop: { display: 'flex', 'justify-content': 'center' } } }
+			] },
+			home: pageTemplateSections('Home'),
+			pages: [
+				{ title: 'About', sections: pageTemplateSections('About Us') },
+				{ title: 'Services', sections: pageTemplateSections('Services') },
+				{ title: 'Contact', sections: pageTemplateSections('Contact') }
+			]
+		}
+	];
+
+	function openSiteKitLibrary() {
+		if (!BOOT.canManage) { toast('Site Kits require admin access.', true); return; }
+		var body = el('div', { class: 'openb-modal__body' });
+		body.appendChild(el('p', { class: 'openb-hint', text: 'A kit sets your brand colors and fonts, builds a matching header and footer, applies a home layout to this page, and creates About, Services and Contact pages — all at once.' }));
+		var grid = el('div', { class: 'openb-tpl-grid' });
+		SITE_KITS.forEach(function (kit) {
+			grid.appendChild(el('button', { class: 'openb-tpl-card', onclick: function () { applySiteKit(kit); } }, [
+				el('span', { class: 'openb-tpl-card__name', text: kit.name }),
+				el('span', { class: 'openb-tpl-card__desc', text: kit.description })
+			]));
+		});
+		body.appendChild(grid);
+		modal('Site Kits', body);
+	}
+
+	function applySiteKit(kit) {
+		if (!BOOT.canManage) { toast('Site Kits require admin access.', true); return; }
+		if (!window.confirm('Apply the "' + kit.name + '" kit?\n\nThis will set your brand colors & fonts, create a header & footer (unless you already have them), create About, Services and Contact pages, and replace THIS page with the kit home layout (undoable).')) return;
+		toast('Applying kit…');
+		var payload = {
+			globals: kit.globals,
+			header: [ instantiatePreset(kit.header) ],
+			footer: [ instantiatePreset(kit.footer) ],
+			pages: kit.pages.map(function (p) { return { title: p.title, tree: p.sections.map(instantiatePreset) }; })
+		};
+		api('/apply-kit', payload).then(function (res) {
+			if (!res.ok || !res.data || !res.data.success) { toast('Could not apply kit', true); return; }
+			if (res.data.globals) { state.globals = res.data.globals; injectGlobalVars(res.data.globals); }
+			pushHistory();
+			state.tree = kit.home.map(instantiatePreset);
+			state.selectedId = null;
+			markDirty(); renderCanvas(); renderLayers(); renderInspector();
+			save();
+			showKitResult(kit, res.data);
+		}).catch(function () { toast('Could not apply kit', true); });
+	}
+
+	// Push the kit's brand variables straight into the canvas iframe so colors
+	// update live, without waiting for the cached global.css file to re-fetch.
+	function injectGlobalVars(globals) {
+		var doc = canvasDoc();
+		if (!doc) return;
+		var css = ':root{';
+		(globals.colors || []).forEach(function (c) { css += '--ob-color-' + c.id + ':' + c.value + ';'; });
+		(globals.fonts || []).forEach(function (f) { css += '--ob-font-' + f.id + ':' + f.value + ';'; });
+		(globals.sizes || []).forEach(function (s) { css += '--ob-size-' + s.id + ':' + s.value + ';'; });
+		css += '}';
+		var node = doc.getElementById('openb-kit-vars');
+		if (!node) { node = doc.createElement('style'); node.id = 'openb-kit-vars'; doc.head.appendChild(node); }
+		node.textContent = css;
+	}
+
+	function showKitResult(kit, data) {
+		closeModal();
+		var body = el('div', { class: 'openb-modal__body' });
+		body.appendChild(el('p', { class: 'openb-hint', text: '"' + kit.name + '" applied. Your brand colors and this page are updated.' }));
+		var chrome = data.chrome || {};
+		['header', 'footer'].forEach(function (t) {
+			var s = chrome[t];
+			if (!s) return;
+			var msg = s === 'created' ? ('Created a ' + t) : s === 'kept' ? ('Kept your existing ' + t) : ('Could not create ' + t);
+			body.appendChild(el('div', { class: 'openb-audit ' + (s === 'failed' ? 'is-warn' : 'is-ok') }, [el('span', { text: (s === 'failed' ? '⚠ ' : '✓ ') + msg })]));
+		});
+		if ((data.pages || []).length) {
+			body.appendChild(el('div', { class: 'openb-stylegroup__title', text: 'Pages created' }));
+			data.pages.forEach(function (p) {
+				body.appendChild(el('div', { class: 'openb-field openb-field--inline' }, [
+					el('span', { class: 'openb-field__label', text: p.title }),
+					el('span', { class: 'openb-btnrow' }, [
+						el('a', { class: 'openb-btn', href: p.edit_url }, ['Edit']),
+						el('a', { class: 'openb-btn', href: p.view_url, target: '_blank', rel: 'noopener' }, ['View'])
+					])
+				]));
+			});
+		}
+		var foot = el('div', { class: 'openb-modal__foot' }, [
+			el('button', { class: 'openb-btn', onclick: closeModal }, ['Close']),
+			el('button', { class: 'openb-btn openb-btn--primary', onclick: function () { window.location.reload(); } }, ['Reload to show header & footer'])
+		]);
+		modal('Site Kit applied', body, foot);
+	}
+
 	function markDirty() { state.dirty = true; }
 
 	window.addEventListener('beforeunload', function (e) {
@@ -2102,6 +2936,8 @@
 		var tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
 		if (tag === 'input' || tag === 'textarea' || tag === 'select' || (e.target && e.target.isContentEditable)) return;
 		if (!state.selectedId) return;
+		// Content-only users can't copy/cut/paste/duplicate/delete elements.
+		if (BOOT.contentOnly) return;
 
 		if (mod && e.key.toLowerCase() === 'c') { e.preventDefault(); copyNode(state.selectedId); }
 		else if (mod && e.key.toLowerCase() === 'x') { e.preventDefault(); cutNode(state.selectedId); }
@@ -2146,7 +2982,9 @@
 			accordion: '<rect x="3" y="4" width="18" height="5" rx="1"/><rect x="3" y="12" width="18" height="8" rx="1"/><path d="M17 6h2M17 15h2"/>',
 			tabs: '<path d="M3 8h6V4H3zM10 8h11V4H10zM3 20h18V10H3z"/>',
 			share: '<circle cx="6" cy="12" r="2.5"/><circle cx="17" cy="6" r="2.5"/><circle cx="17" cy="18" r="2.5"/><path d="M8 11l7-4M8 13l7 4"/>',
-			map: '<path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/>'
+			map: '<path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/>',
+			grid: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+			pricing: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>'
 		};
 		var inner = icons[name] || icons.text;
 		return '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' + inner + '</svg>';

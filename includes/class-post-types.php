@@ -127,4 +127,39 @@ class Post_Types {
 	public static function save_page_settings( int $post_id, array $settings ): void {
 		update_post_meta( $post_id, self::META_PAGE, wp_slash( wp_json_encode( $settings ) ) );
 	}
+
+	/* --------------------------------------------------------------------- *
+	 * Revision history: a rolling list of prior tree snapshots, independent of
+	 * core post revisions (which don't capture our post-meta tree). Newest last.
+	 * --------------------------------------------------------------------- */
+	const META_REVISIONS = '_openb_revisions';
+	const MAX_REVISIONS  = 20;
+
+	/** @return array<int,array{t:int,u:string,tree:array}> oldest → newest */
+	public static function get_revisions( int $post_id ): array {
+		$raw = get_post_meta( $post_id, self::META_REVISIONS, true );
+		$data = is_array( $raw ) ? $raw : json_decode( (string) $raw, true );
+		return is_array( $data ) ? $data : [];
+	}
+
+	/**
+	 * Snapshot the given tree as a new revision, unless it's identical to the
+	 * most recent one (nothing changed since last snapshot). Caps the list.
+	 */
+	public static function push_revision( int $post_id, array $tree, string $author ): void {
+		$revisions = self::get_revisions( $post_id );
+		$last = end( $revisions );
+		if ( is_array( $last ) && isset( $last['tree'] ) && wp_json_encode( $last['tree'] ) === wp_json_encode( $tree ) ) {
+			return; // no change since the last snapshot
+		}
+		$revisions[] = [
+			't'    => time(),
+			'u'    => sanitize_text_field( $author ),
+			'tree' => $tree,
+		];
+		if ( count( $revisions ) > self::MAX_REVISIONS ) {
+			$revisions = array_slice( $revisions, -self::MAX_REVISIONS );
+		}
+		update_post_meta( $post_id, self::META_REVISIONS, wp_slash( wp_json_encode( $revisions ) ) );
+	}
 }

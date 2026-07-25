@@ -43,6 +43,7 @@ class Widgets {
 			'class-widget-html.php',
 			'class-widget-shortcode.php',
 			'class-widget-form.php',
+			'class-widget-ofb-form.php',
 			'class-widget-post-title.php',
 			'class-widget-post-content.php',
 			'class-widget-site-logo.php',
@@ -52,6 +53,8 @@ class Widgets {
 			'class-widget-video.php',
 			'class-widget-gallery.php',
 			'class-widget-icon-box.php',
+			'class-widget-feature-grid.php',
+			'class-widget-pricing-table.php',
 			'class-widget-list.php',
 			'class-widget-star-rating.php',
 			'class-widget-testimonial.php',
@@ -81,6 +84,7 @@ class Widgets {
 			Widget_Html::class,
 			Widget_Shortcode::class,
 			Widget_Form::class,
+			Widget_Ofb_Form::class,
 			Widget_Post_Title::class,
 			Widget_Post_Content::class,
 			Widget_Site_Logo::class,
@@ -90,6 +94,8 @@ class Widgets {
 			Widget_Video::class,
 			Widget_Gallery::class,
 			Widget_Icon_Box::class,
+			Widget_Feature_Grid::class,
+			Widget_Pricing_Table::class,
 			Widget_List::class,
 			Widget_Star_Rating::class,
 			Widget_Testimonial::class,
@@ -144,6 +150,13 @@ class Widgets {
 	public function schema_for_editor(): array {
 		$out = [];
 		foreach ( self::$registry as $type => $widget ) {
+			// The Open Form Builder bridge widget only belongs in the "add new"
+			// panel while that plugin is active; existing usages on a page stay
+			// registered (and keep rendering their "not active" fallback) via
+			// is_registered() even if it's later deactivated.
+			if ( 'ofb_form' === $type && ! class_exists( 'OFB_Forms' ) ) {
+				continue;
+			}
 			$out[ $type ] = [
 				'type'        => $type,
 				'title'       => $widget->title(),

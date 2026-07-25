@@ -4,7 +4,7 @@ Tags: page builder, visual builder, drag and drop, editor, landing page
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 8.0
-Stable tag: 1.21.0
+Stable tag: 1.22.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -27,8 +27,10 @@ under Open Builder &rarr; Settings). If anything looks off, deactivate the plugi
 
 Features:
 
-* Live drag-and-drop editor with a real-time, server-rendered canvas (true WYSIWYG).
-* 32 widgets across Layout, Basic, Media, Marketing, Interactive, Dynamic and Advanced groups — including Video, Gallery, Accordion, Tabs, Counter, Progress Bar, Testimonial, Star Rating, Icon Box, Icon List, Social Icons, Google Map and a Shortcode embed.
+* Live drag-and-drop editor with a real-time, server-rendered canvas (true WYSIWYG), a WYSIWYG rich-text control, and a syntax-highlighting code editor for Custom HTML.
+* 35 widgets across Layout, Basic, Media, Marketing, Interactive, Dynamic and Advanced groups — including Video, Gallery (grid or masonry, with lightbox), Accordion, Tabs, Counter, Progress Bar, Testimonial, Star Rating, Icon Box, Feature Grid, Pricing Table, Icon List, Social Icons, Google Map and a Shortcode embed.
+* Drag-to-resize columns, entrance/hover motion, an expanded icon set with custom-SVG support, and one-click Site Kits (brand colors, header, footer and starter pages together).
+* Version history (restore a previous save) and a content-only editing mode for handing a finished site to a client without risking the layout.
 * Theme builder: design Headers, Footers, Single, Archive, Search and 404 templates and assign them with display conditions.
 * Popups: design popups visually with triggers (load, exit-intent, scroll, click, inactivity), display conditions, frequency capping and an accessible front-end dialog.
 * Dynamic widgets: Post Title, Post Content, Site Logo, Nav Menu, and a Posts loop for archives/blogs.
@@ -66,6 +68,23 @@ As a sanitized JSON tree in post meta (`_openb_tree`), with compiled CSS cached
 in `_openb_compiled_css`.
 
 == Changelog ==
+
+= 1.22.0 =
+* Drag-to-resize columns: draggable dividers between columns in the canvas set real width ratios (e.g. 30/70), replacing the old equal-share-only layout.
+* Hover state styling: Text/Background/Border Color, Opacity and a Motion preset (lift/grow/shrink), available on every widget's Style tab alongside the existing per-breakpoint controls.
+* Entrance animations: fade/up/down/left/right/zoom with duration and delay, applied on scroll via a reduced-motion-aware, no-JS-safe front-end runtime.
+* Expanded icon library (8 → ~50 bundled icons) plus a Custom SVG option on the Icon widget, sanitized server-side against a shape-only allowlist.
+* Site Kits: a one-click "✦ Site Kits" action sets brand colors/fonts, creates a matching header and footer (only if you don't already have one), and publishes a set of starter pages — all from a single admin action.
+* Two new widgets: Feature Grid (icon + heading + text repeater, 2–4 columns) and Pricing Table (plan cards with a featured/highlighted option).
+* Gallery: added a Masonry layout option and a real click-to-open lightbox (prev/next/keyboard/close), built as a progressive enhancement over plain links.
+* Version history: every manual Save records a restore point; a new History button lists past versions and restores one back into the editor.
+* Content-only editing mode: a per-user "content-only" flag (set on the user's profile) restricts them to editing text/images/links — no adding, deleting or restructuring — enforced both in the editor UI and server-side on save.
+* Open Form Builder bridge widget: a "Booking / Advanced Form" widget lists and embeds forms from the separate Open Form Builder plugin directly (only appears when that plugin is active).
+* 5 full-page starter templates (Home, About, Services, Contact, Pricing) and autosave (a silent save every 30s when there are unsaved changes).
+* Global link styling: links default to no underline / brand-primary color instead of the browser default blue-underline; the Text widget gets a per-block Link Color override.
+* Rich text is now a real WYSIWYG editor (bold/italic/underline/link/lists) with a raw-HTML toggle, replacing the old plain-code textarea.
+* Custom HTML is now a proper code editor (CodeMirror, self-hosted): syntax highlighting, tab-indent, Cmd/Ctrl+F search-and-jump, a Beautify (reformat) action, and a lightweight unclosed/mismatched-tag check.
+* The editor preview now loads the same webfonts (Google Fonts, Adobe Fonts/Typekit, etc.) the front end uses, so custom typography matches between builder and live page.
 
 = 1.21.0 =
 * Custom breakpoints: set your own Tablet and Mobile max-widths under Open Builder → Settings → Responsive Breakpoints (defaults 1024 / 767). All responsive styles, hide-on-device rules and column stacking use your values, and the editor's device-preview buttons size the canvas to match, so the builder switches layouts exactly where the front end does. Values are clamped to safe ranges (mobile always below tablet); changing them rebuilds the cached CSS automatically.

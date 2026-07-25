@@ -25,6 +25,24 @@ class Theme_Builder {
 		return (bool) get_option( self::OPTION_SITE_WIDE, false );
 	}
 
+	/**
+	 * Whether at least one template of the given type already exists (any status
+	 * except trash). Used by the Site Kit importer so applying a kit never
+	 * silently clobbers or duplicates a header/footer the user already built.
+	 */
+	public static function has_template( string $type ): bool {
+		$found = get_posts( [
+			'post_type'      => Post_Types::CPT_TEMPLATE,
+			'post_status'    => [ 'publish', 'draft', 'pending', 'private' ],
+			'posts_per_page' => 1,
+			'fields'         => 'ids',
+			'meta_key'       => self::META_TYPE,
+			'meta_value'     => $type,
+			'suppress_filters' => false,
+		] );
+		return ! empty( $found );
+	}
+
 	/** Template types and their human labels. */
 	public static function types(): array {
 		return [

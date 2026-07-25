@@ -21,7 +21,121 @@
 		initVideoFacades();
 		initCounters();
 		initProgress();
+		initAnimations();
+		initLightbox();
 	});
+
+	/* ----- Lightbox (galleries with data-ob-lightbox) -----
+	   Progressive enhancement over real <a href> links: intercept clicks, show
+	   the full image in an overlay with prev/next/close + keyboard control. */
+	function initLightbox() {
+		var galleries = document.querySelectorAll('.ob-gallery[data-ob-lightbox]');
+		if (!galleries.length) return;
+
+		var overlay, imgEl, countEl, items = [], index = 0;
+
+		function build() {
+			overlay = document.createElement('div');
+			overlay.className = 'ob-lightbox';
+			overlay.setAttribute('role', 'dialog');
+			overlay.setAttribute('aria-modal', 'true');
+			overlay.setAttribute('aria-label', 'Image viewer');
+			overlay.hidden = true;
+			imgEl = document.createElement('img');
+			imgEl.className = 'ob-lightbox__img';
+			imgEl.alt = '';
+			countEl = document.createElement('div');
+			countEl.className = 'ob-lightbox__count';
+			var close = btn('ob-lightbox__close', '×', 'Close', hide);
+			var prev = btn('ob-lightbox__prev', '‹', 'Previous', function () { show(index - 1); });
+			var next = btn('ob-lightbox__next', '›', 'Next', function () { show(index + 1); });
+			overlay.appendChild(imgEl);
+			overlay.appendChild(close);
+			overlay.appendChild(prev);
+			overlay.appendChild(next);
+			overlay.appendChild(countEl);
+			overlay.addEventListener('click', function (e) { if (e.target === overlay) hide(); });
+			document.body.appendChild(overlay);
+		}
+		function btn(cls, label, aria, fn) {
+			var b = document.createElement('button');
+			b.className = 'ob-lightbox__btn ' + cls;
+			b.type = 'button';
+			b.textContent = label;
+			b.setAttribute('aria-label', aria);
+			b.addEventListener('click', function (e) { e.stopPropagation(); fn(); });
+			return b;
+		}
+		function show(i) {
+			if (!items.length) return;
+			index = (i + items.length) % items.length;
+			imgEl.src = items[index];
+			countEl.textContent = (index + 1) + ' / ' + items.length;
+			overlay.hidden = false;
+			document.documentElement.classList.add('openb-popup-open');
+		}
+		function hide() {
+			overlay.hidden = true;
+			imgEl.src = '';
+			document.documentElement.classList.remove('openb-popup-open');
+		}
+
+		galleries.forEach(function (gal) {
+			var links = Array.prototype.slice.call(gal.querySelectorAll('.ob-gallery__item[href]'));
+			gal.addEventListener('click', function (e) {
+				var a = e.target.closest('.ob-gallery__item[href]');
+				if (!a || !gal.contains(a)) return;
+				e.preventDefault();
+				if (!overlay) build();
+				items = links.map(function (l) { return l.getAttribute('href'); });
+				show(links.indexOf(a));
+			});
+		});
+
+		document.addEventListener('keydown', function (e) {
+			if (!overlay || overlay.hidden) return;
+			if (e.key === 'Escape') hide();
+			else if (e.key === 'ArrowRight') show(index + 1);
+			else if (e.key === 'ArrowLeft') show(index - 1);
+		});
+	}
+
+	/* ----- Entrance animations (reveal on scroll) -----
+	   Progressive enhancement: the server emits only data-ob-anim on elements;
+	   the initial hidden state is applied here in JS, so a no-JS visitor always
+	   sees fully-visible content. Honors prefers-reduced-motion. */
+	function initAnimations() {
+		var nodes = Array.prototype.slice.call(document.querySelectorAll('[data-ob-anim]'));
+		if (!nodes.length) return;
+
+		var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		if (reduce) return; // leave everything in its natural, visible state
+
+		nodes.forEach(function (el) {
+			var type = el.getAttribute('data-ob-anim') || 'fade';
+			var dur = parseInt(el.getAttribute('data-ob-anim-dur'), 10);
+			var delay = parseInt(el.getAttribute('data-ob-anim-delay'), 10);
+			el.classList.add('ob-anim', 'ob-anim--' + type);
+			if (dur) el.style.setProperty('--ob-anim-dur', dur + 'ms');
+			if (delay) el.style.setProperty('--ob-anim-delay', delay + 'ms');
+		});
+
+		// Use a threshold of ~0 so elements taller than the viewport (e.g. a full
+		// hero section) still trigger the moment any part scrolls into view —
+		// onVisible's 0.4 ratio would never fire for those. A small negative
+		// rootMargin holds the reveal until the element is a touch inside.
+		function reveal(el) { el.classList.add('is-in'); }
+		if (!('IntersectionObserver' in window)) {
+			nodes.forEach(reveal);
+			return;
+		}
+		var io = new IntersectionObserver(function (entries) {
+			entries.forEach(function (entry) {
+				if (entry.isIntersecting) { reveal(entry.target); io.unobserve(entry.target); }
+			});
+		}, { threshold: 0.01, rootMargin: '0px 0px -8% 0px' });
+		nodes.forEach(function (el) { io.observe(el); });
+	}
 
 	/* ----- Accordion ----- */
 	function initAccordions() {

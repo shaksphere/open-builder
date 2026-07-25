@@ -61,6 +61,52 @@ class Security {
 		return current_user_can( 'manage_options' );
 	}
 
+	/** User-meta key marking an account as "content-only" in the builder. */
+	const META_CONTENT_ONLY = 'openb_content_only';
+
+	/**
+	 * Whether the given user (default: current) is restricted to content-only
+	 * editing — they can change text/images/links but not the page structure.
+	 * Set by an admin on the user's profile; a site owner uses it to hand a
+	 * finished site to a client without them being able to break the layout.
+	 */
+	public static function is_content_only( ?int $user_id = null ): bool {
+		$user_id = $user_id ?? get_current_user_id();
+		if ( ! $user_id ) {
+			return false;
+		}
+		return (bool) get_user_meta( $user_id, self::META_CONTENT_ONLY, true );
+	}
+
+	/**
+	 * Compare two node trees for structural equality: same node ids, same types,
+	 * same parent/child arrangement and order. Content/style values may differ.
+	 * Used to enforce content-only editing server-side — a restricted user's save
+	 * is rejected if it would add, remove, move, or retype any node.
+	 */
+	public static function same_structure( array $a, array $b ): bool {
+		return self::structure_signature( $a ) === self::structure_signature( $b );
+	}
+
+	/** Build a canonical id+type+nesting signature for a tree (order-sensitive). */
+	private static function structure_signature( array $nodes ): array {
+		$sig = [];
+		foreach ( $nodes as $node ) {
+			if ( ! is_array( $node ) ) {
+				continue;
+			}
+			$children = ( isset( $node['children'] ) && is_array( $node['children'] ) )
+				? self::structure_signature( $node['children'] )
+				: [];
+			$sig[] = [
+				(string) ( $node['id'] ?? '' ),
+				(string) ( $node['type'] ?? '' ),
+				$children,
+			];
+		}
+		return $sig;
+	}
+
 	/**
 	 * Recursively sanitize a node tree coming from the editor.
 	 *
@@ -135,6 +181,7 @@ class Security {
 			'hide_desktop' => ! empty( $settings['advanced']['hide_desktop'] ),
 			'hide_tablet'  => ! empty( $settings['advanced']['hide_tablet'] ),
 			'hide_mobile'  => ! empty( $settings['advanced']['hide_mobile'] ),
+			'animation'    => self::sanitize_animation( $settings['advanced']['animation'] ?? [] ),
 		];
 
 		return [
@@ -255,6 +302,8 @@ class Security {
 				return current_user_can( 'unfiltered_html' ) ? $value : wp_kses_post( $value );
 			case 'textarea':
 				return sanitize_textarea_field( (string) $value );
+			case 'svg':
+				return self::sanitize_svg_inner( (string) $value );
 			case 'url':
 				return esc_url_raw( (string) $value );
 			case 'number':
@@ -283,14 +332,23 @@ class Security {
 				}
 				return $items;
 			case 'repeater':
-				return is_array( $value ) ? self::sanitize_repeater( $value ) : [];
+				return is_array( $value ) ? self::sanitize_repeater( $value, is_array( $control['fields'] ?? null ) ? $control['fields'] : [] ) : [];
 			case 'text':
 			default:
 				return sanitize_text_field( (string) $value );
 		}
 	}
 
-	private static function sanitize_repeater( array $rows ): array {
+	/**
+	 * Sanitize repeater rows. When the field schema is known, each cell is
+	 * sanitized by its declared control type — so a textarea subfield keeps its
+	 * newlines (e.g. pricing features), a richtext subfield keeps safe HTML (e.g.
+	 * accordion content), and a url subfield is escaped as a URL. Unknown keys
+	 * fall back to plain text.
+	 *
+	 * @param array $fields Map of subfield key => control definition (with 'type').
+	 */
+	private static function sanitize_repeater( array $rows, array $fields = [] ): array {
 		$out = [];
 		foreach ( array_slice( $rows, 0, 100 ) as $row ) {
 			if ( ! is_array( $row ) ) {
@@ -298,9 +356,14 @@ class Security {
 			}
 			$clean = [];
 			foreach ( $row as $k => $v ) {
-				$clean[ sanitize_key( $k ) ] = is_array( $v )
-					? array_map( 'sanitize_text_field', wp_unslash( $v ) )
-					: sanitize_text_field( (string) $v );
+				$key = sanitize_key( $k );
+				if ( isset( $fields[ $key ]['type'] ) ) {
+					$clean[ $key ] = self::sanitize_control_value( $v, (string) $fields[ $key ]['type'], $fields[ $key ] );
+				} elseif ( is_array( $v ) ) {
+					$clean[ $key ] = array_map( 'sanitize_text_field', wp_unslash( $v ) );
+				} else {
+					$clean[ $key ] = sanitize_text_field( (string) $v );
+				}
 			}
 			$out[] = $clean;
 		}
@@ -318,7 +381,10 @@ class Security {
 		}
 
 		$allowed_props = self::allowed_css_properties();
-		$breakpoints   = [ 'desktop', 'tablet', 'mobile' ];
+		// 'hover' isn't a real breakpoint — it's a flat declaration map applied as
+		// a :hover rule at every device (see Css_Generator::walk()) — but it's
+		// sanitized identically to the responsive ones, so it rides the same loop.
+		$breakpoints   = [ 'desktop', 'tablet', 'mobile', 'hover' ];
 		$out           = [];
 
 		foreach ( $breakpoints as $bp ) {
@@ -354,6 +420,7 @@ class Security {
 			'box-shadow', 'opacity', 'display', 'flex-direction', 'flex-wrap',
 			'justify-content', 'align-items', 'gap', 'grid-template-columns',
 			'object-fit', 'overflow', 'z-index', 'position', 'top', 'right', 'bottom', 'left',
+			'transform', 'transition',
 		];
 	}
 
@@ -401,6 +468,33 @@ class Security {
 		return '';
 	}
 
+	/** Allowed entrance-animation types (mirrors the editor's Advanced control). */
+	const ANIMATION_TYPES = [ 'none', 'fade', 'up', 'down', 'left', 'right', 'zoom' ];
+
+	/**
+	 * Sanitize a node's entrance-animation config. Type is whitelisted; duration
+	 * and delay are clamped to sane millisecond ranges. Returns [] when disabled
+	 * so the renderer/JS emit nothing.
+	 *
+	 * @return array{type?:string,duration?:int,delay?:int}
+	 */
+	public static function sanitize_animation( $anim ): array {
+		if ( ! is_array( $anim ) || empty( $anim['type'] ) ) {
+			return [];
+		}
+		$type = (string) $anim['type'];
+		if ( ! in_array( $type, self::ANIMATION_TYPES, true ) || 'none' === $type ) {
+			return [];
+		}
+		$duration = isset( $anim['duration'] ) ? (int) $anim['duration'] : 600;
+		$delay    = isset( $anim['delay'] ) ? (int) $anim['delay'] : 0;
+		return [
+			'type'     => $type,
+			'duration' => max( 100, min( 3000, $duration ) ),
+			'delay'    => max( 0, min( 3000, $delay ) ),
+		];
+	}
+
 	public static function sanitize_custom_css( string $css ): string {
 		// Scoped, but still strip the obvious script-injection vectors.
 		$css = (string) $css;
@@ -414,6 +508,54 @@ class Security {
 			}
 		}
 		return $css;
+	}
+
+	/**
+	 * Sanitize user-supplied SVG for the Icon widget's "Custom SVG" field. We keep
+	 * only the *inner* shape markup (the widget wraps it in its own controlled
+	 * <svg> element, so the outer element's attributes are never user-controlled),
+	 * and run it through wp_kses with a shape-only allowlist. This drops <script>,
+	 * on* handlers, href/xlink:href (external-fetch vectors), <foreignObject>, and
+	 * any element/attribute not on the list. Inner shape attributes are all
+	 * lowercase/hyphenated, so wp_kses's attribute-name lowercasing is a non-issue
+	 * here (unlike the camelCase viewBox on an outer <svg>, which we never accept).
+	 *
+	 * @return string Safe inner SVG markup, or '' if nothing survived.
+	 */
+	public static function sanitize_svg_inner( string $markup ): string {
+		$markup = trim( $markup );
+		if ( '' === $markup ) {
+			return '';
+		}
+		if ( strlen( $markup ) > 20000 ) {
+			return '';
+		}
+		// Strip any outer <svg …> … </svg> wrapper; we supply our own.
+		$markup = preg_replace( '#</?svg\b[^>]*>#i', '', $markup );
+		// Belt-and-braces: remove script/style blocks before kses even runs.
+		$markup = preg_replace( '#<(script|style|foreignObject)\b[^>]*>.*?</\1>#is', '', (string) $markup );
+
+		$shape_attrs = [
+			'd' => true, 'points' => true, 'transform' => true, 'opacity' => true,
+			'fill' => true, 'fill-rule' => true, 'clip-rule' => true, 'fill-opacity' => true,
+			'stroke' => true, 'stroke-width' => true, 'stroke-linecap' => true,
+			'stroke-linejoin' => true, 'stroke-dasharray' => true, 'stroke-opacity' => true,
+			'cx' => true, 'cy' => true, 'r' => true, 'rx' => true, 'ry' => true,
+			'x' => true, 'y' => true, 'x1' => true, 'y1' => true, 'x2' => true, 'y2' => true,
+			'width' => true, 'height' => true, 'class' => true,
+		];
+		$allowed = [
+			'path'     => $shape_attrs,
+			'circle'   => $shape_attrs,
+			'ellipse'  => $shape_attrs,
+			'rect'     => $shape_attrs,
+			'line'     => $shape_attrs,
+			'polyline' => $shape_attrs,
+			'polygon'  => $shape_attrs,
+			'g'        => $shape_attrs,
+		];
+		$clean = wp_kses( (string) $markup, $allowed );
+		return trim( $clean );
 	}
 
 	public static function sanitize_class_list( string $classes ): string {

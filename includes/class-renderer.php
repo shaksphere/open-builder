@@ -99,16 +99,33 @@ class Renderer {
 			$id_attr = sprintf( ' id="%s"', esc_attr( $advanced['css_id'] ) );
 		}
 
+		// Entrance animation: emit data attributes the front-end runtime reads to
+		// enhance the element on scroll. Front end only — in the editor we render
+		// the final (visible) state so authors aren't fighting fade-ins, and so a
+		// no-JS visitor never sees permanently-hidden content.
+		$anim_attr = '';
+		$anim = $advanced['animation'] ?? [];
+		if ( ! empty( $anim['type'] ) && ! Render_Context::is_editor() ) {
+			$anim_attr = sprintf( ' data-ob-anim="%s"', esc_attr( $anim['type'] ) );
+			if ( ! empty( $anim['duration'] ) ) {
+				$anim_attr .= sprintf( ' data-ob-anim-dur="%d"', (int) $anim['duration'] );
+			}
+			if ( ! empty( $anim['delay'] ) ) {
+				$anim_attr .= sprintf( ' data-ob-anim-delay="%d"', (int) $anim['delay'] );
+			}
+		}
+
 		$tag = $this->wrapper_tag( $type, $content );
 
 		return sprintf(
-			'<%1$s class="%2$s"%3$s data-ob-id="%5$s" data-ob-type="%6$s">%4$s</%1$s>',
+			'<%1$s class="%2$s"%3$s data-ob-id="%5$s" data-ob-type="%6$s"%7$s>%4$s</%1$s>',
 			$tag,
 			$class_attr,
 			$id_attr,
 			$rendered,
 			esc_attr( $id ),
-			esc_attr( $type )
+			esc_attr( $type ),
+			$anim_attr
 		);
 	}
 
